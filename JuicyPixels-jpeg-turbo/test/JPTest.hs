@@ -14,9 +14,9 @@ import Data.Either (isLeft, isRight)
 import Data.Int (Int16)
 import Data.Vector.Storable qualified as V
 import Data.Word (Word8)
-import Foreign (Ptr, Storable, castPtr, nullPtr, peek, with)
+import Foreign (Ptr, Storable, alloca, castPtr, free, nullPtr, peek, with)
 import Foreign.C.String (peekCString)
-import Foreign.C.Types (CInt(..), CSize(..), CUChar)
+import Foreign.C.Types (CInt(..), CSize(..), CUChar, CULong(..))
 import Test.Tasty.HUnit (Assertion, assertBool, assertFailure, (@?=))
 import TurboJPEG2 qualified as TJ2
 import TurboJPEG3 qualified as TJ3
@@ -158,6 +158,16 @@ unit_limits = do
   decodeError <$> JT.decodeJpeg options {JT.maxMemoryMB = 2047} jpeg >>= (@?= Nothing)
   where
     large = generateImage (\x y -> PixelRGB8 (fromIntegral x) (fromIntegral y) (fromIntegral (x + y))) 1000 1000
+
+unit_scanLimit :: IO ()
+unit_scanLimit = do
+  jpeg <- alloca \jpegPtr -> do
+    jpegSize <- manyScansJpeg jpegPtr
+    jpegBuf <- peek jpegPtr
+    B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize) `finally` free jpegBuf
+  decodeError <$> JT.decodeJpeg options jpeg >>= (@?= Just "Progressive JPEG image has more than 500 scans")
+
+foreign import ccall "many_scans_jpeg" manyScansJpeg :: Ptr (Ptr CUChar) -> IO CULong
 
 foreign import ccall "turbojpeg.h tj3Compress8" tj3Compress8 :: TJ2.TjHandle TJ2.C -> Ptr Word8 -> CInt -> CInt -> CInt -> TJ2.TJPF -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
 
