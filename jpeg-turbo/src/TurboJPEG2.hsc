@@ -83,6 +83,21 @@ foreign import ccall "turbojpeg.h tjDecompress2" tjDecompress2
   -> TJFLAG -- ^ flags
   -> IO CInt
 
+data TjScalingFactor = TjScalingFactor { num, denom :: CInt }
+  deriving (Eq, Show)
+
+instance Storable TjScalingFactor where
+  sizeOf ~_ = #{size tjscalingfactor}
+  alignment ~_ = #{alignment tjscalingfactor}
+  poke p TjScalingFactor{num, denom} = do
+    #{poke tjscalingfactor, num} p num
+    #{poke tjscalingfactor, denom} p denom
+  peek p = TjScalingFactor
+    <$> (#{peek tjscalingfactor, num} p)
+    <*> (#{peek tjscalingfactor, denom} p)
+
+foreign import ccall "turbojpeg.h tjGetScalingFactors" tjGetScalingFactors :: Ptr CInt -> IO (Ptr TjScalingFactor)
+
 -- * Transform
 
 data T

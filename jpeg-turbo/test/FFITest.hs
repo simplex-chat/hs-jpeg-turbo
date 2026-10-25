@@ -63,3 +63,11 @@ unit_TurboJPEG2 =
 
 unit_tjBufSize :: IO ()
 unit_tjBufSize = toInteger (TJ2.tjBufSize 30000 30000 TJ2.TJSAMP_420) @?= 2700002048
+
+unit_scalingFactors :: IO ()
+unit_scalingFactors = do
+  factors <- alloca \countPtr -> do
+    factorsPtr <- TJ2.tjGetScalingFactors countPtr
+    count <- peek countPtr
+    peekArray (fromIntegral count) factorsPtr
+  assertBool "1/2, 1/4 or 1/8 is missing" $ all (`elem` factors) [TJ2.TjScalingFactor 1 d | d <- [2, 4, 8]]
