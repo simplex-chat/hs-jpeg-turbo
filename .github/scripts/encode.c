@@ -49,9 +49,63 @@ static const struct {
 
 static const int qualities[] = { 20, 50, 85, 95, 100 };
 
+static const struct {
+  const char *name;
+  int flags;
+} modes[] = {
+  { "progressive", TJFLAG_PROGRESSIVE },
+  { "baseline", 0 }
+};
+
+static const int denominators[] = { 1, 2, 4, 8 };
+
+static int save(const char *path, const unsigned char *data, size_t size)
+{
+  FILE *f = fopen(path, "wb");
+
+  if (!f || fwrite(data, 1, size, f) != size || fclose(f) != 0) {
+    perror(path);
+    return 1;
+  }
+  return 0;
+}
+
+static int decode(const char *base, const unsigned char *jpeg, unsigned long size)
+{
+  tjhandle handle = tjInitDecompress();
+  int width, height, subsamp, colorspace;
+  size_t d;
+
+  if (!handle || tjDecompressHeader3(handle, jpeg, size, &width, &height, &subsamp, &colorspace) != 0) {
+    fprintf(stderr, "%s: %s\n", base, tjGetErrorStr2(handle));
+    return 1;
+  }
+  for (d = 0; d < sizeof(denominators) / sizeof(denominators[0]); d++) {
+    int w = (width + denominators[d] - 1) / denominators[d], h = (height + denominators[d] - 1) / denominators[d];
+    size_t rgbSize = (size_t)w * h * 3;
+    unsigned char *rgb = malloc(rgbSize);
+    char path[4096];
+
+    if (!rgb) {
+      perror("malloc");
+      return 1;
+    }
+    if (tjDecompress2(handle, jpeg, size, rgb, w, 0, h, TJPF_RGB, TJFLAG_STOPONWARNING | TJFLAG_LIMITSCANS) != 0) {
+      fprintf(stderr, "%s 1/%d: %s\n", base, denominators[d], tjGetErrorStr2(handle));
+      return 1;
+    }
+    snprintf(path, sizeof(path), "%s-%d.rgb", base, denominators[d]);
+    if (save(path, rgb, rgbSize))
+      return 1;
+    free(rgb);
+  }
+  tjDestroy(handle);
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
-  size_t i, q;
+  size_t i, q, m;
 
   if (argc != 2) {
     fprintf(stderr, "usage: %s DIRECTORY\n", argv[0]);
@@ -69,26 +123,24 @@ int main(int argc, char **argv)
       for (x = 0; x < w; x++)
         for (c = 0; c < 3; c++)
           rgb[((size_t)y * w + x) * 3 + c] = images[i].pixel(x, y, c);
-    for (q = 0; q < sizeof(qualities) / sizeof(qualities[0]); q++) {
-      tjhandle handle = tjInitCompress();
-      unsigned char *jpeg = NULL;
-      unsigned long size = 0;
-      char path[4096];
-      FILE *f;
+    for (q = 0; q < sizeof(qualities) / sizeof(qualities[0]); q++)
+      for (m = 0; m < sizeof(modes) / sizeof(modes[0]); m++) {
+        tjhandle handle = tjInitCompress();
+        unsigned char *jpeg = NULL;
+        unsigned long size = 0;
+        char base[4096], path[4096];
 
-      if (!handle || tjCompress2(handle, rgb, w, 0, h, TJPF_RGB, &jpeg, &size, TJSAMP_420, qualities[q], TJFLAG_PROGRESSIVE | TJFLAG_STOPONWARNING) != 0) {
-        fprintf(stderr, "%s q%d: %s\n", images[i].name, qualities[q], tjGetErrorStr2(handle));
-        return 1;
+        if (!handle || tjCompress2(handle, rgb, w, 0, h, TJPF_RGB, &jpeg, &size, TJSAMP_420, qualities[q], modes[m].flags | TJFLAG_STOPONWARNING) != 0) {
+          fprintf(stderr, "%s q%d %s: %s\n", images[i].name, qualities[q], modes[m].name, tjGetErrorStr2(handle));
+          return 1;
+        }
+        snprintf(base, sizeof(base), "%s/%s-q%d-%s", argv[1], images[i].name, qualities[q], modes[m].name);
+        snprintf(path, sizeof(path), "%s.jpg", base);
+        if (save(path, jpeg, size) || decode(base, jpeg, size))
+          return 1;
+        tjFree(jpeg);
+        tjDestroy(handle);
       }
-      snprintf(path, sizeof(path), "%s/%s-q%d.jpg", argv[1], images[i].name, qualities[q]);
-      f = fopen(path, "wb");
-      if (!f || fwrite(jpeg, 1, size, f) != size || fclose(f) != 0) {
-        perror(path);
-        return 1;
-      }
-      tjFree(jpeg);
-      tjDestroy(handle);
-    }
     free(rgb);
   }
   return 0;
