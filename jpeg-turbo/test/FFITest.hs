@@ -8,6 +8,7 @@ import Foreign
 import Foreign.C.String
 import Test.Tasty.HUnit (assertBool, (@?=))
 import TurboJPEG2 qualified as TJ2
+import TurboJPEG3 qualified as TJ3
 
 unit_TurboJPEG2 :: IO ()
 unit_TurboJPEG2 =
@@ -71,3 +72,13 @@ unit_scalingFactors = do
     count <- peek countPtr
     peekArray (fromIntegral count) factorsPtr
   assertBool "1/2, 1/4 or 1/8 is missing" $ all (`elem` factors) [TJ2.TjScalingFactor 1 d | d <- [2, 4, 8]]
+
+unit_TurboJPEG3 :: IO ()
+unit_TurboJPEG3 =
+  bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt -> do
+    TJ3.tj3Set jt TJ3.TJPARAM_MAXMEMORY 2047 >>= (@?= 0)
+    TJ3.tj3Get jt TJ3.TJPARAM_MAXMEMORY >>= (@?= 2047)
+    TJ3.tj3Set jt TJ3.TJPARAM_QUALITY 100 >>= (@?= -1)
+    BU.unsafeUseAsCStringLen "\xFF\xD8\xFF\xD9" \(jpegBuf, jpegSize) ->
+      TJ3.tj3DecompressHeader jt (castPtr jpegBuf) (fromIntegral jpegSize) >>= (@?= 0)
+    TJ3.tj3Get jt TJ3.TJPARAM_JPEGWIDTH >>= (@?= -1)

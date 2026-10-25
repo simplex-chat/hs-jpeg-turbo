@@ -37,6 +37,7 @@ source-repository head
 library
   exposed-modules:
       TurboJPEG2
+      TurboJPEG3
   other-modules:
       Paths_jpeg_turbo
   autogen-modules:
