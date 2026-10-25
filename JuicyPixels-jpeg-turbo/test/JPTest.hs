@@ -2,14 +2,24 @@
 
 module JPTest where
 
-import Codec.Picture (Image(..), PixelRGB8(..), PixelRGBA8(..), decodeJpeg, dynamicMap, generateImage)
+import Codec.Picture (DynamicImage(..), Image(..), Pixel8, PixelBaseComponent, PixelCMYK8(..), PixelRGB8(..), PixelRGBA8(..), convertRGB8, decodeJpeg, dynamicMap, encodePng, generateImage)
 import Codec.Picture.JPEGTurbo qualified as JT
-import Control.Exception (ErrorCall(..), try)
-import Control.Monad (forM_)
+import Control.Exception (ErrorCall(..), bracket, finally, try)
+import Control.Monad (forM_, unless)
 import Data.Bits (finiteBitSize)
 import Data.ByteString qualified as B
+import Data.ByteString.Lazy qualified as BL
+import Data.ByteString.Unsafe qualified as BU
+import Data.Either (isLeft, isRight)
+import Data.Int (Int16)
+import Data.Vector.Storable qualified as V
+import Data.Word (Word8)
+import Foreign (Ptr, Storable, castPtr, nullPtr, peek, with)
+import Foreign.C.String (peekCString)
+import Foreign.C.Types (CInt(..), CSize(..), CUChar)
 import Test.Tasty.HUnit (Assertion, assertBool, assertFailure, (@?=))
 import TurboJPEG2 qualified as TJ2
+import TurboJPEG3 qualified as TJ3
 
 instance JT.EncodableRGB PixelRGBA8 where
   jtPixelFormat _ = TJ2.TJPF_RGBA
@@ -47,8 +57,181 @@ unit_tallImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encod
 -- TODO: unit_rgba etc
 -- TODO: unit_yuv
 
+unit_header :: IO ()
+unit_header = do
+  ycbcr <- JT.encodeRGB 100 image
+  rgb <- compress (lossy TJ2.TJSAMP_444 <> [colorspace TJ2.TJCS_RGB]) TJ2.TJPF_RGB image
+  gray <- compress (lossy TJ2.TJSAMP_GRAY) TJ2.TJPF_GRAY grayGradient
+  ycck <- compress (lossy TJ2.TJSAMP_420) TJ2.TJPF_CMYK cmykGradient
+  cmyk <- compress (lossy TJ2.TJSAMP_444 <> [colorspace TJ2.TJCS_CMYK]) TJ2.TJPF_CMYK cmykGradient
+  subsamp441 <- compress (lossy TJ3.TJSAMP_441) TJ2.TJPF_RGB image
+  let unknownSubsamp = patch (sofOffset ycbcr + 17) [0x21] ycbcr
+  headers <- mapM JT.readJpegHeader [ycbcr, rgb, gray, ycck, cmyk, subsamp441, unknownSubsamp]
+  headers @?= map (Right . uncurry (JT.JpegHeader 37 23))
+    [ (TJ2.TJSAMP_420, TJ2.TJCS_YCbCr)
+    , (TJ2.TJSAMP_444, TJ2.TJCS_RGB)
+    , (TJ2.TJSAMP_GRAY, TJ2.TJCS_GRAY)
+    , (TJ2.TJSAMP_420, TJ2.TJCS_YCCK)
+    , (TJ2.TJSAMP_444, TJ2.TJCS_CMYK)
+    , (TJ3.TJSAMP_441, TJ2.TJCS_YCbCr)
+    , (TJ3.TJSAMP_UNKNOWN, TJ2.TJCS_YCbCr)
+    ]
+
+unit_unsupported :: IO ()
+unit_unsupported = do
+  precision12 <- compressWith tj3Compress12 (lossy TJ2.TJSAMP_420) TJ2.TJPF_RGB 37 23 samples12
+  lossless <- compress [(TJ3.TJPARAM_LOSSLESS, 1)] TJ2.TJPF_RGB image
+  forM_ [(precision12, "unsupported data precision"), (lossless, "unsupported lossless JPEG")] \(jpeg, err) -> do
+    JT.readJpegHeader jpeg >>= (@?= Left err)
+    decodeError <$> JT.decodeJpeg options jpeg >>= (@?= Just err)
+  where
+    samples12 = V.generate (37 * 23 * 3) (fromIntegral . (`mod` 4096) . (* 7))
+
+unit_scales :: IO ()
+unit_scales = forM_ [(37, 23), (1001, 999), (65500, 1)] \(w, h) -> do
+  jpeg <- JT.encodeRGB 100 (generateImage (\_ _ -> PixelRGB8 200 100 50) w h)
+  forM_ scales \(scale, d) ->
+    JT.decodeJpeg options {JT.scale} jpeg >>= \case
+      Right (ImageRGB8 Image {imageWidth, imageHeight, imageData}) -> do
+        (imageWidth, imageHeight) @?= ((w + d - 1) `div` d, (h + d - 1) `div` d)
+        V.length imageData @?= imageWidth * imageHeight * 3
+        assertBool "decoded colour differs by more than 2" $ and $ zipWith closeEnough (V.toList imageData) (cycle [200, 100, 50])
+      _ -> assertFailure "not decoded as RGB"
+  where
+    closeEnough a b = abs (fromIntegral a - b :: Int) <= 2
+
+unit_sameAsJuicyPixels :: IO ()
+unit_sameAsJuicyPixels = do
+  ycbcr <- compress (lossy TJ2.TJSAMP_444) TJ2.TJPF_RGB gradient
+  gray <- compress (lossy TJ2.TJSAMP_GRAY) TJ2.TJPF_GRAY grayGradient
+  ycck <- compress (lossy TJ2.TJSAMP_444) TJ2.TJPF_CMYK cmykGradient
+  cmyk <- compress (lossy TJ2.TJSAMP_444 <> [colorspace TJ2.TJCS_CMYK]) TJ2.TJPF_CMYK cmykGradient
+  forM_ [ycbcr, gray, ycck, cmyk] \jpeg -> do
+    actual <- either error samples <$> JT.decodeJpeg options jpeg
+    let expected = either error samples $ decodeJpeg jpeg
+    fst actual @?= fst expected
+    assertBool "decoded sample differs by more than 3" $ and $ zipWith closeEnough (snd actual) (snd expected)
+  where
+    closeEnough a b = abs (fromIntegral a - fromIntegral b :: Int) <= 3
+
+unit_arithmetic :: IO ()
+unit_arithmetic = forM_ [[], [(TJ3.TJPARAM_PROGRESSIVE, 1)]] \progression -> do
+  huffman <- compress (lossy TJ2.TJSAMP_420 <> progression) TJ2.TJPF_RGB gradient
+  arithmetic <- compress (lossy TJ2.TJSAMP_420 <> progression <> [(TJ3.TJPARAM_ARITHMETIC, 1)]) TJ2.TJPF_RGB gradient
+  mapM arithmeticCoding [huffman, arithmetic] >>= (@?= [0, 1])
+  forM_ scales \(scale, _) -> do
+    expected <- JT.decodeJpeg options {JT.scale} huffman
+    actual <- JT.decodeJpeg options {JT.scale} arithmetic
+    assertBool "arithmetic-coded JPEG decoded differently" $ isRight actual && actual == expected
+
+unit_truncated :: IO ()
+unit_truncated = do
+  jpeg <- JT.encodeRGB 90 gradient
+  let sos = markerOffset "\xFF\xDA" jpeg
+      headerEnd = sos + 2 + fromIntegral (B.index jpeg (sos + 2)) * 256 + fromIntegral (B.index jpeg (sos + 3))
+  forM_ [2, headerEnd, B.length jpeg `div` 2, B.length jpeg - 1] \size ->
+    JT.decodeJpeg options (B.take size jpeg) >>= assertBool "truncated JPEG decoded" . isLeft
+
+unit_malformed :: IO ()
+unit_malformed = do
+  jpeg <- JT.encodeRGB 100 image
+  let png = BL.toStrict (encodePng image)
+      withWidth :: Int -> B.ByteString
+      withWidth w = patch (sofOffset jpeg + 7) [fromIntegral (w `div` 256), fromIntegral w] jpeg
+  forM_ [B.empty, "not a JPEG", png, "\xFF\xD8\xFF\xD9", withWidth 0, withWidth 65501] \input -> do
+    JT.readJpegHeader input >>= assertBool "malformed JPEG header read" . isLeft
+    JT.decodeJpeg options input >>= assertBool "malformed JPEG decoded" . isLeft
+  JT.readJpegHeader "\xFF\xD8\xFF\xD9" >>= (@?= Left "no image in JPEG")
+  JT.readJpegHeader (withWidth 65500) >>= (@?= Right (JT.JpegHeader 65500 23 TJ2.TJSAMP_420 TJ2.TJCS_YCbCr))
+
+unit_limits :: IO ()
+unit_limits = do
+  progressive <- JT.encodeRGB 90 large
+  baseline <- compress (lossy TJ2.TJSAMP_420) TJ2.TJPF_RGB large
+  JT.decodeJpeg options {JT.maxMemoryMB = 1} progressive >>= assertBool "progressive JPEG decoded within 1 MB" . isLeft
+  JT.decodeJpeg options {JT.maxMemoryMB = 1} baseline >>= assertBool "baseline JPEG not decoded within 1 MB" . isRight
+  jpeg <- JT.encodeRGB 90 image
+  decodeError <$> JT.decodeJpeg options {JT.maxPixels = 37 * 23 - 1} jpeg >>= (@?= Just "image is too large")
+  decodeError <$> JT.decodeJpeg options {JT.maxPixels = 37 * 23} jpeg >>= (@?= Nothing)
+  forM_ [options {JT.maxPixels = 0}, options {JT.maxMemoryMB = 0}, options {JT.maxMemoryMB = 2048}] \invalid ->
+    decodeError <$> JT.decodeJpeg invalid jpeg >>= (@?= Just "invalid decode options")
+  decodeError <$> JT.decodeJpeg options {JT.maxMemoryMB = 2047} jpeg >>= (@?= Nothing)
+  where
+    large = generateImage (\x y -> PixelRGB8 (fromIntegral x) (fromIntegral y) (fromIntegral (x + y))) 1000 1000
+
+foreign import ccall "turbojpeg.h tj3Compress8" tj3Compress8 :: TJ2.TjHandle TJ2.C -> Ptr Word8 -> CInt -> CInt -> CInt -> TJ2.TJPF -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
+
+foreign import ccall "turbojpeg.h tj3Compress12" tj3Compress12 :: TJ2.TjHandle TJ2.C -> Ptr Int16 -> CInt -> CInt -> CInt -> TJ2.TJPF -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
+
+type Compress a = TJ2.TjHandle TJ2.C -> Ptr a -> CInt -> CInt -> CInt -> TJ2.TJPF -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
+
+compress :: PixelBaseComponent px ~ Word8 => [(TJ3.TJPARAM, CInt)] -> TJ2.TJPF -> Image px -> IO B.ByteString
+compress params pixelFormat Image {imageWidth, imageHeight, imageData} = compressWith tj3Compress8 params pixelFormat imageWidth imageHeight imageData
+
+compressWith :: Storable a => Compress a -> [(TJ3.TJPARAM, CInt)] -> TJ2.TJPF -> Int -> Int -> V.Vector a -> IO B.ByteString
+compressWith tj3Compress params pixelFormat width height pixels =
+  bracket TJ2.tjInitCompress TJ2.tjDestroy \jt -> do
+    forM_ params \(param, value) -> TJ3.tj3Set jt param value >>= assertSuccess jt
+    V.unsafeWith pixels \srcBuf ->
+      with nullPtr \jpegBufPtr ->
+        with 0 \jpegSizePtr ->
+          flip finally (peek jpegBufPtr >>= TJ2.tjFree) do
+            tj3Compress jt srcBuf (fromIntegral width) 0 (fromIntegral height) pixelFormat jpegBufPtr jpegSizePtr >>= assertSuccess jt
+            jpegBuf <- peek jpegBufPtr
+            jpegSize <- peek jpegSizePtr
+            B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize)
+
+arithmeticCoding :: B.ByteString -> IO CInt
+arithmeticCoding jpeg =
+  bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt ->
+    BU.unsafeUseAsCStringLen jpeg \(jpegBuf, jpegSize) -> do
+      TJ3.tj3DecompressHeader jt (castPtr jpegBuf) (fromIntegral jpegSize) >>= assertSuccess jt
+      TJ3.tj3Get jt TJ3.TJPARAM_ARITHMETIC
+
+assertSuccess :: TJ2.TjHandle a -> CInt -> Assertion
+assertSuccess jt rc = unless (rc == 0) $ TJ2.tjGetErrorStr2 jt >>= peekCString >>= assertFailure
+
+lossy :: TJ2.TJSAMP -> [(TJ3.TJPARAM, CInt)]
+lossy (TJ2.TJSAMP subsamp) = [(TJ3.TJPARAM_QUALITY, 90), (TJ3.TJPARAM_SUBSAMP, subsamp)]
+
+colorspace :: TJ2.TJCS -> (TJ3.TJPARAM, CInt)
+colorspace (TJ2.TJCS cs) = (TJ3.TJPARAM_COLORSPACE, cs)
+
+options :: JT.DecodeOptions
+options = JT.DecodeOptions {JT.scale = JT.Full, JT.maxPixels = 2 ^ (28 :: Int), JT.maxMemoryMB = 512}
+
+scales :: [(JT.Scale, Int)]
+scales = [(JT.Full, 1), (JT.Half, 2), (JT.Quarter, 4), (JT.Eighth, 8)]
+
+decodeError :: Either String a -> Maybe String
+decodeError = either Just (const Nothing)
+
+samples :: DynamicImage -> (String, [Word8])
+samples = \case
+  ImageY8 Image {imageData} -> ("Y8", V.toList imageData)
+  ImageCMYK8 Image {imageData} -> ("CMYK8", V.toList imageData)
+  decoded -> ("RGB8", V.toList (imageData (convertRGB8 decoded)))
+
+markerOffset :: B.ByteString -> B.ByteString -> Int
+markerOffset marker = B.length . fst . B.breakSubstring marker
+
+sofOffset :: B.ByteString -> Int
+sofOffset = markerOffset "\xFF\xC2"
+
+patch :: Int -> [Word8] -> B.ByteString -> B.ByteString
+patch offset bytes jpeg = B.take offset jpeg <> B.pack bytes <> B.drop (offset + length bytes) jpeg
+
 image :: Image PixelRGB8
 image = generateImage (\x y -> PixelRGB8 (fromIntegral x) (fromIntegral y) (fromIntegral (x * y))) 37 23
+
+gradient :: Image PixelRGB8
+gradient = generateImage (\x y -> PixelRGB8 (fromIntegral (x * 6)) (fromIntegral (y * 10)) (fromIntegral ((x + y) * 4))) 37 23
+
+grayGradient :: Image Pixel8
+grayGradient = generateImage (\x y -> fromIntegral (x * 3 + y * 5)) 37 23
+
+cmykGradient :: Image PixelCMYK8
+cmykGradient = generateImage (\x y -> PixelCMYK8 (fromIntegral (x * 6)) (fromIntegral (y * 10)) (fromIntegral ((x + y) * 4)) (fromIntegral ((x + y) * 3))) 37 23
 
 blank :: Int -> Int -> Image PixelRGB8
 blank = generateImage (\_ _ -> PixelRGB8 0 0 0)
