@@ -1,3 +1,6 @@
+-- | TurboJPEG API v3.0
+--
+-- <https://rawcdn.githack.com/libjpeg-turbo/libjpeg-turbo/3.0.x/doc/html/group___turbo_j_p_e_g.html>
 module TurboJPEG3 where
 
 import Foreign

@@ -413,10 +413,7 @@ pattern TJFLAG_FASTDCT = TJFLAG #{const TJFLAG_FASTDCT}
 pattern TJFLAG_FASTUPSAMPLE :: TJFLAG
 pattern TJFLAG_FASTUPSAMPLE = TJFLAG #{const TJFLAG_FASTUPSAMPLE}
 
--- | Limit the number of progressive JPEG scans that the decompression and transform functions will process.
---
--- If a progressive JPEG image contains an unreasonably large number of scans, then this flag will cause the decompression and transform functions to return an error.
--- The primary purpose of this is to allow security-critical applications to guard against an exploit of the progressive JPEG format described in <https://libjpeg-turbo.org/pmwiki/uploads/About/TwoIssueswiththeJPEGStandard.pdf this report>.
+-- | Limits progressive JPEGs to 500 scans.
 pattern TJFLAG_LIMITSCANS :: TJFLAG
 pattern TJFLAG_LIMITSCANS = TJFLAG #{const TJFLAG_LIMITSCANS}
 

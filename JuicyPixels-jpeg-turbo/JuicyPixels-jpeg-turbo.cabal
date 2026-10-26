@@ -3,7 +3,7 @@ cabal-version: 2.2
 name:           JuicyPixels-jpeg-turbo
 version:        0.1.0.0
 synopsis:       JuicyPixels wrappers for libjpeg-turbo
-description:    JPEG encoding of JuicyPixels images with libjpeg-turbo.
+description:    JPEG encoding and decoding of JuicyPixels images with mozjpeg.
 category:       Codec, Image
 author:         IC Rainbow
 maintainer:     aenor.realm@gmail.com
