@@ -20,6 +20,10 @@ extra-source-files:
     cbits/libspng/tests/images/*.png
     cbits/libspng/tests/images/PngSuite.LICENSE
 
+source-repository head
+  type: git
+  location: https://gitlab.com/dpwiz/hs-jpeg-turbo
+
 library
   exposed-modules:
       Codec.Picture.Spng
