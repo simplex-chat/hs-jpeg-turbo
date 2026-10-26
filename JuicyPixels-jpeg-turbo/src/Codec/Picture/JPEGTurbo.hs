@@ -20,9 +20,10 @@ import Data.ByteString.Unsafe qualified as BU
 import Data.Vector.Storable qualified as V
 import Data.Vector.Storable.Mutable qualified as MV
 import Data.Word (Word8)
-import Foreign (castPtr, peek, with, nullPtr)
+import Foreign (allocaBytes, castPtr, free, peek, with, nullPtr)
 import Foreign.C.String (CStringLen, peekCString)
 import Foreign.C.Types (CInt, CULong)
+import MozJPEG qualified as Moz
 import TurboJPEG2 qualified as TJ2
 import TurboJPEG3 qualified as TJ3
 
@@ -41,22 +42,20 @@ encodeRGB jpegQual image@Image{imageWidth, imageHeight, imageData} = do
   unless (validDimension imageWidth && validDimension imageHeight) $ error "encodeRGB: invalid image dimensions"
   unless (toInteger (V.length imageData) == toInteger imageWidth * toInteger imageHeight * pixelSize) $ error "encodeRGB: invalid image data length"
   unless (0 <= jpegQual && jpegQual <= 100) $ error "encodeRGB: invalid quality"
-  bracket TJ2.tjInitCompress TJ2.tjDestroy \jt ->
-    V.unsafeWith imageData \bufPtr ->
-      with nullPtr \jpegBufPtr ->
-        with 0 \jpegSizePtr ->
-          flip finally (peek jpegBufPtr >>= TJ2.tjFree) do
-            rc <- TJ2.tjCompress2 jt (castPtr bufPtr) (fromIntegral imageWidth) 0 (fromIntegral imageHeight) pixelFormat jpegBufPtr jpegSizePtr jpegSubsamp (fromIntegral jpegQual) flags
+  V.unsafeWith imageData \bufPtr ->
+    with nullPtr \jpegBufPtr ->
+      with 0 \jpegSizePtr ->
+        allocaBytes Moz.jmsgLengthMax \errorBuf ->
+          flip finally (peek jpegBufPtr >>= free) do
+            rc <- Moz.jpegTurboEncode (castPtr bufPtr) (fromIntegral imageWidth) (fromIntegral imageHeight) pixelFormat (fromIntegral jpegQual) jpegBufPtr jpegSizePtr errorBuf
+            unless (rc == 0) $ peekCString errorBuf >>= error
             jpegBuf <- peek jpegBufPtr
-            unless (rc == 0) $ TJ2.tjGetErrorStr2 jt >>= peekCString >>= error
             jpegSize <- peek jpegSizePtr
             B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize)
   where
     validDimension d = 1 <= d && d <= 65500
-    flags = TJ2.TJFLAG_PROGRESSIVE <> TJ2.TJFLAG_STOPONWARNING
     pixelFormat = jtPixelFormat image
     pixelSize = maybe (error "encodeRGB: unknown pixel format") toInteger $ TJ2.tjPixelSize pixelFormat
-    jpegSubsamp = TJ2.TJSAMP_420
 
 data JpegHeader = JpegHeader
   { jpegWidth :: Int

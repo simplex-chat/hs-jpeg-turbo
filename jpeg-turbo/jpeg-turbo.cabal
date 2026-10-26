@@ -37,6 +37,7 @@ source-repository head
 
 library
   exposed-modules:
+      MozJPEG
       TurboJPEG2
       TurboJPEG3
   other-modules:
@@ -64,6 +65,7 @@ library
       cbits
       cbits/mozjpeg
   c-sources:
+      cbits/encode.c
       cbits/mozjpeg/jcapimin.c
       cbits/mozjpeg/jcapistd.c
       cbits/mozjpeg/jccoefct.c

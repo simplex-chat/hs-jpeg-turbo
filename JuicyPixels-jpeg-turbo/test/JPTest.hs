@@ -6,13 +6,13 @@ import Codec.Picture (DynamicImage(..), Image(..), Pixel8, PixelBaseComponent, P
 import Codec.Picture.JPEGTurbo qualified as JT
 import Control.Exception (ErrorCall(..), bracket, finally, try)
 import Control.Monad (forM_, unless)
-import Data.Bits (finiteBitSize)
+import Data.Bits (finiteBitSize, xor)
 import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
 import Data.Either (isLeft, isRight)
 import Data.Int (Int16)
 import Data.Vector.Storable qualified as V
-import Data.Word (Word8)
+import Data.Word (Word64, Word8)
 import Foreign (Ptr, Storable, alloca, castPtr, free, nullPtr, peek, with)
 import Foreign.C.String (peekCString)
 import Foreign.C.Types (CInt(..), CSize(..), CUChar, CULong(..))
@@ -52,6 +52,14 @@ unit_wideImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encod
 
 unit_tallImage :: IO ()
 unit_tallImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encodeRGB 100 (blank 1 65501)
+
+unit_sameAsMozjpeg415 :: IO ()
+unit_sameAsMozjpeg415 = do
+  jpegs <- sequence [JT.encodeRGB 50 gradient, JT.encodeRGB 20 texture, JT.encodeRGB 85 texture]
+  map (\jpeg -> (B.length jpeg, fnv1a jpeg)) jpegs @?= [(421, 671102332627477552), (7518, 926183756610730380), (38918, 3582522977617396525)]
+  where
+    texture = generateImage (\x y -> PixelRGB8 (fromIntegral (x * y)) (fromIntegral (x * 3 + y * 7)) (fromIntegral ((x * x + y * y) `div` 16))) 320 240
+    fnv1a = B.foldl' (\h b -> (h `xor` fromIntegral b) * 1099511628211) (14695981039346656037 :: Word64)
 
 -- TODO: unit_rgba etc
 -- TODO: unit_yuv
