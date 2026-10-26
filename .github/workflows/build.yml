@@ -163,3 +163,6 @@ jobs:
 
       - name: Compare JPEGs encoded with Neon and with the C code paths
         run: bash .github/scripts/armv7-check.sh
+
+      - name: Compare PNGs decoded by the armv7 and aarch64 builds
+        run: bash .github/scripts/png-check.sh
