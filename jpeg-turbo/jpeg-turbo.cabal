@@ -205,23 +205,35 @@ library
         cbits/mozjpeg/simd/arm/jidctred-neon.c
         cbits/mozjpeg/simd/arm/jquanti-neon.c
   if arch(arm)
-    cc-options: -DNEON_INTRINSICS -mfpu=neon
+    cc-options: -DNEON_INTRINSICS
     c-sources:
-        cbits/mozjpeg/simd/arm/aarch32/jchuff-neon.c
         cbits/mozjpeg/simd/arm/aarch32/jsimd.c
-        cbits/mozjpeg/simd/arm/jccolor-neon.c
-        cbits/mozjpeg/simd/arm/jcgray-neon.c
-        cbits/mozjpeg/simd/arm/jcphuff-neon.c
-        cbits/mozjpeg/simd/arm/jcsample-neon.c
-        cbits/mozjpeg/simd/arm/jdcolor-neon.c
-        cbits/mozjpeg/simd/arm/jdmerge-neon.c
-        cbits/mozjpeg/simd/arm/jdsample-neon.c
-        cbits/mozjpeg/simd/arm/jfdctfst-neon.c
-        cbits/mozjpeg/simd/arm/jfdctint-neon.c
-        cbits/mozjpeg/simd/arm/jidctfst-neon.c
-        cbits/mozjpeg/simd/arm/jidctint-neon.c
-        cbits/mozjpeg/simd/arm/jidctred-neon.c
-        cbits/mozjpeg/simd/arm/jquanti-neon.c
+    build-depends:
+        neon
+
+library neon
+  cc-options: -DNEON_INTRINSICS -mfpu=neon
+  include-dirs:
+      cbits
+      cbits/mozjpeg
+  c-sources:
+      cbits/mozjpeg/simd/arm/aarch32/jchuff-neon.c
+      cbits/mozjpeg/simd/arm/jccolor-neon.c
+      cbits/mozjpeg/simd/arm/jcgray-neon.c
+      cbits/mozjpeg/simd/arm/jcphuff-neon.c
+      cbits/mozjpeg/simd/arm/jcsample-neon.c
+      cbits/mozjpeg/simd/arm/jdcolor-neon.c
+      cbits/mozjpeg/simd/arm/jdmerge-neon.c
+      cbits/mozjpeg/simd/arm/jdsample-neon.c
+      cbits/mozjpeg/simd/arm/jfdctfst-neon.c
+      cbits/mozjpeg/simd/arm/jfdctint-neon.c
+      cbits/mozjpeg/simd/arm/jidctfst-neon.c
+      cbits/mozjpeg/simd/arm/jidctint-neon.c
+      cbits/mozjpeg/simd/arm/jidctred-neon.c
+      cbits/mozjpeg/simd/arm/jquanti-neon.c
+  default-language: Haskell2010
+  if !arch(arm)
+    buildable: False
 
 test-suite jpeg-turbo-test
   type: exitcode-stdio-1.0
