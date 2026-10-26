@@ -2,7 +2,7 @@ cabal-version: 2.2
 
 name:           jpeg-turbo
 version:        0.1.0.0
-synopsis:       FFI bindings to libjpeg-turbo
+synopsis:       FFI bindings to mozjpeg
 description:    Faster and more capable codec for JPEG images using libjpeg-turbo.
                 .
                 mozjpeg 08265790, based on libjpeg-turbo 3.0.5, is compiled from
