@@ -15,7 +15,11 @@
 #define INLINE  __inline__ __attribute__((always_inline))
 
 /* How to obtain thread-local storage */
+#if defined(__ANDROID__) && defined(__arm__)
+#define THREAD_LOCAL
+#else
 #define THREAD_LOCAL  __thread
+#endif
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME  "mozjpeg"
