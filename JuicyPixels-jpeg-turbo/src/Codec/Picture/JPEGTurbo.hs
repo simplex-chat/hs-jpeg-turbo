@@ -90,10 +90,10 @@ decodeJpeg DecodeOptions{scale, maxPixels, maxMemoryMB} jpeg
           height = scaled jpegHeight
           decompress = decompressPixels jt jpegBuf width height
       case jpegColorspace of
-        TJ2.TJCS_GRAY -> ImageY8 . Image width height <$> decompress TJ2.TJPF_GRAY
-        TJ2.TJCS_CMYK -> ImageCMYK8 . Image width height <$> decompress TJ2.TJPF_CMYK
-        TJ2.TJCS_YCCK -> ImageCMYK8 . Image width height . V.map complement <$> decompress TJ2.TJPF_CMYK
-        _ -> ImageRGB8 . Image width height <$> decompress TJ2.TJPF_RGB
+        TJ2.TJCS_GRAY -> ImageY8 . Image width height <$> decompress TJ2.TJPF_GRAY 1
+        TJ2.TJCS_CMYK -> ImageCMYK8 . Image width height <$> decompress TJ2.TJPF_CMYK 4
+        TJ2.TJCS_YCCK -> ImageCMYK8 . Image width height . V.map complement <$> decompress TJ2.TJPF_CMYK 4
+        _ -> ImageRGB8 . Image width height <$> decompress TJ2.TJPF_RGB 3
   where
     scaled side = (side + denominator - 1) `div` denominator
     denominator = case scale of
@@ -128,10 +128,9 @@ readHeader jt (jpegBuf, jpegSize) = do
   where
     getParam = liftIO . TJ3.tj3Get jt
 
-decompressPixels :: TJ2.TjHandle TJ2.D -> CStringLen -> Int -> Int -> TJ2.TJPF -> ExceptT String IO (V.Vector Word8)
-decompressPixels jt (jpegBuf, jpegSize) width height pixelFormat = do
-  pixelSize <- maybe (throwE "unknown pixel format") pure $ TJ2.tjPixelSize pixelFormat
-  size <- maybe (throwE "image is too large") pure $ toIntegralSized (toInteger width * toInteger height * toInteger pixelSize)
+decompressPixels :: TJ2.TjHandle TJ2.D -> CStringLen -> Int -> Int -> TJ2.TJPF -> Int -> ExceptT String IO (V.Vector Word8)
+decompressPixels jt (jpegBuf, jpegSize) width height pixelFormat pixelSize = do
+  size <-maybe (throwE "image is too large") pure $ toIntegralSized (toInteger width * toInteger height * toInteger pixelSize)
   pixels <- liftIO $ MV.unsafeNew size
   checkResult jt $ MV.unsafeWith pixels \dstBuf ->
     TJ2.tjDecompress2 jt (castPtr jpegBuf) (fromIntegral jpegSize) (castPtr dstBuf) (fromIntegral width) 0 (fromIntegral height) pixelFormat flags
