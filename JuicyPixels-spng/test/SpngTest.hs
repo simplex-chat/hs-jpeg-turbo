@@ -1,7 +1,7 @@
 module SpngTest where
 
 import Codec.Compression.Zlib qualified as Z
-import Codec.Picture (DynamicImage(..), Image(..), convertRGB8, convertRGBA8)
+import Codec.Picture (DynamicImage(..), Image(..), PixelRGBA8(..), convertRGB8, convertRGBA8, generateImage)
 import Codec.Picture qualified as JP
 import Codec.Picture.Spng
 import Control.Monad (forM_)
@@ -32,7 +32,25 @@ unit_sameAsJuicyPixels = forM_ suite \(name, transparent) -> do
 unit_sameOnEveryPlatform :: IO ()
 unit_sameOnEveryPlatform = do
   images <- mapM (\(name, _) -> B.readFile (suiteImage name) >>= decodePng options >>= either assertFailure pure) suite
-  foldl (V.foldl' (\h b -> (h `xor` fromIntegral b) * 1099511628211)) (14695981039346656037 :: Word64) (map (snd . samples) images) @?= 512529522448376465
+  foldl (V.foldl' fnv1a) fnvOffset (map (snd . samples) images) @?= 512529522448376465
+
+unit_encodeRoundTrip :: IO ()
+unit_encodeRoundTrip = forM_ encodings \(size, filtering) -> do
+  let image = gradient size
+  decoded <- encodePng (EncodeOptions 9 filtering) image >>= either assertFailure (decodePng options)
+  fmap samples decoded @?= Right ("RGBA8", imageData image)
+
+unit_encodeSameOnEveryPlatform :: IO ()
+unit_encodeSameOnEveryPlatform = do
+  pngs <- mapM (\(size, filtering) -> encodePng (EncodeOptions 9 filtering) (gradient size) >>= either assertFailure pure) encodings
+  foldl (B.foldl' fnv1a) fnvOffset pngs @?= 2357105111401705807
+
+unit_encodeInvalid :: IO ()
+unit_encodeInvalid = do
+  encodePng (EncodeOptions 10 True) (gradient (2, 2)) >>= (@?= Left "invalid encode options")
+  encodePng (EncodeOptions (-1) True) (gradient (2, 2)) >>= (@?= Left "invalid encode options")
+  encodePng (EncodeOptions 9 True) (Image 0 0 V.empty) >>= assertBool "0x0 image encoded" . isLeft
+  encodePng (EncodeOptions 9 True) (Image 2 2 (V.replicate 15 0)) >>= assertBool "short image data encoded" . isLeft
 
 unit_generated :: IO ()
 unit_generated = do
@@ -85,6 +103,18 @@ suite =
   , ("basi4a08", True)
   , ("basi6a16", True)
   ]
+
+encodings :: [((Int, Int), Bool)]
+encodings = [(size, filtering) | size <- [(1, 1), (2, 1), (3, 3), (7, 5), (31, 17), (64, 48), (255, 3)], filtering <- [True, False]]
+
+gradient :: (Int, Int) -> Image PixelRGBA8
+gradient (w, h) = generateImage (\x y -> PixelRGBA8 (fromIntegral $ x * 7 + y * 3) (fromIntegral $ x * y) (fromIntegral $ x + y * 11) (fromIntegral $ x * 5 + y * 13)) w h
+
+fnv1a :: Word64 -> Word8 -> Word64
+fnv1a h b = (h `xor` fromIntegral b) * 1099511628211
+
+fnvOffset :: Word64
+fnvOffset = 14695981039346656037
 
 suiteImage :: String -> FilePath
 suiteImage name = "cbits/libspng/tests/images/" <> name <> ".png"
