@@ -9,7 +9,6 @@ import Control.Monad (forM_, unless)
 import Data.Bits (finiteBitSize, xor)
 import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
-import Data.ByteString.Unsafe qualified as BU
 import Data.Either (isLeft, isRight)
 import Data.Int (Int16)
 import Data.Vector.Storable qualified as V
@@ -122,16 +121,6 @@ unit_sameAsJuicyPixels = do
   where
     closeEnough a b = abs (fromIntegral a - fromIntegral b :: Int) <= 3
 
-unit_arithmetic :: IO ()
-unit_arithmetic = forM_ [[], [(TJ3.TJPARAM_PROGRESSIVE, 1)]] \progression -> do
-  huffman <- compress (lossy TJ2.TJSAMP_420 <> progression) TJ2.TJPF_RGB gradient
-  arithmetic <- compress (lossy TJ2.TJSAMP_420 <> progression <> [(TJ3.TJPARAM_ARITHMETIC, 1)]) TJ2.TJPF_RGB gradient
-  mapM arithmeticCoding [huffman, arithmetic] >>= (@?= [0, 1])
-  forM_ scales \(scale, _) -> do
-    expected <- JT.decodeJpeg options {JT.scale} huffman
-    actual <- JT.decodeJpeg options {JT.scale} arithmetic
-    assertBool "arithmetic-coded JPEG decoded differently" $ isRight actual && actual == expected
-
 unit_truncated :: IO ()
 unit_truncated = do
   jpeg <- JT.encodeRGB 90 gradient
@@ -203,13 +192,6 @@ compressWith tj3Compress params pixelFormat width height pixels =
             jpegBuf <- peek jpegBufPtr
             jpegSize <- peek jpegSizePtr
             B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize)
-
-arithmeticCoding :: B.ByteString -> IO CInt
-arithmeticCoding jpeg =
-  bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt ->
-    BU.unsafeUseAsCStringLen jpeg \(jpegBuf, jpegSize) -> do
-      TJ3.tj3DecompressHeader jt (castPtr jpegBuf) (fromIntegral jpegSize) >>= assertSuccess jt
-      TJ3.tj3Get jt TJ3.TJPARAM_ARITHMETIC
 
 assertSuccess :: TJ2.TjHandle a -> CInt -> Assertion
 assertSuccess jt rc = unless (rc == 0) $ TJ2.tjGetErrorStr2 jt >>= peekCString >>= assertFailure

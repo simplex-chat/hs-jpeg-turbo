@@ -6,6 +6,7 @@ import Data.ByteString qualified as B
 import Data.ByteString.Unsafe qualified as BU
 import Foreign
 import Foreign.C.String
+import Foreign.C.Types
 import Test.Tasty.HUnit (assertBool, (@?=))
 import TurboJPEG2 qualified as TJ2
 import TurboJPEG3 qualified as TJ3
@@ -82,3 +83,25 @@ unit_TurboJPEG3 =
     BU.unsafeUseAsCStringLen "\xFF\xD8\xFF\xD9" \(jpegBuf, jpegSize) ->
       TJ3.tj3DecompressHeader jt (castPtr jpegBuf) (fromIntegral jpegSize) >>= (@?= 0)
     TJ3.tj3Get jt TJ3.TJPARAM_JPEGWIDTH >>= (@?= -1)
+
+unit_arithmetic :: IO ()
+unit_arithmetic = forM_ [1, 2, 4, 8] \d -> do
+  (arithmetic, actual) <- B.readFile "cbits/mozjpeg/testimages/testimgari.jpg" >>= decodeScaled d
+  (huffman, expected) <- B.readFile "cbits/mozjpeg/testimages/testimgint.jpg" >>= decodeScaled d
+  (arithmetic, huffman) @?= (1, 0)
+  assertBool "arithmetic-coded JPEG decoded differently" (actual == expected)
+
+decodeScaled :: CInt -> B.ByteString -> IO (CInt, B.ByteString)
+decodeScaled d jpeg =
+  bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt ->
+    BU.unsafeUseAsCStringLen jpeg \(jpegBuf, jpegSize) -> do
+      TJ3.tj3DecompressHeader jt (castPtr jpegBuf) (fromIntegral jpegSize) >>= (@?= 0)
+      arithmetic <- TJ3.tj3Get jt TJ3.TJPARAM_ARITHMETIC
+      width <- scaled <$> TJ3.tj3Get jt TJ3.TJPARAM_JPEGWIDTH
+      height <- scaled <$> TJ3.tj3Get jt TJ3.TJPARAM_JPEGHEIGHT
+      let size = fromIntegral (width * height * 3)
+      allocaBytes size \dstBuf -> do
+        TJ2.tjDecompress2 jt (castPtr jpegBuf) (fromIntegral jpegSize) dstBuf width 0 height TJ2.TJPF_RGB (TJ2.TJFLAG_STOPONWARNING .|. TJ2.TJFLAG_LIMITSCANS) >>= (@?= 0)
+        (arithmetic,) <$> B.packCStringLen (castPtr dstBuf, size)
+  where
+    scaled side = (side + d - 1) `div` d

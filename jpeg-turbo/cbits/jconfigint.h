@@ -72,7 +72,7 @@
 #if BITS_IN_JSAMPLE == 8
 
 /* Support arithmetic encoding */
-#define C_ARITH_CODING_SUPPORTED 1
+/* #undef C_ARITH_CODING_SUPPORTED */
 
 /* Support arithmetic decoding */
 #define D_ARITH_CODING_SUPPORTED 1

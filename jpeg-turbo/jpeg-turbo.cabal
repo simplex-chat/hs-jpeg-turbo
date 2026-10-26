@@ -31,6 +31,8 @@ extra-source-files:
     cbits/mozjpeg/simd/arm/*.h
     cbits/mozjpeg/simd/arm/aarch32/*.c
     cbits/mozjpeg/simd/arm/aarch64/*.c
+    cbits/mozjpeg/testimages/testimgari.jpg
+    cbits/mozjpeg/testimages/testimgint.jpg
 
 source-repository head
   type: git
@@ -70,7 +72,6 @@ library
       cbits/mozjpeg/jaricom.c
       cbits/mozjpeg/jcapimin.c
       cbits/mozjpeg/jcapistd.c
-      cbits/mozjpeg/jcarith.c
       cbits/mozjpeg/jccoefct.c
       cbits/mozjpeg/jccolor.c
       cbits/mozjpeg/jcdctmgr.c

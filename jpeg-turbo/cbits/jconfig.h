@@ -11,7 +11,7 @@
 #define LIBJPEG_TURBO_VERSION_NUMBER  5000000
 
 /* Support arithmetic encoding when using 8-bit samples */
-#define C_ARITH_CODING_SUPPORTED 1
+/* #undef C_ARITH_CODING_SUPPORTED */
 
 /* Support arithmetic decoding when using 8-bit samples */
 #define D_ARITH_CODING_SUPPORTED 1
