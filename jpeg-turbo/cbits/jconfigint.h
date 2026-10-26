@@ -78,7 +78,7 @@
 /* #undef D_ARITH_CODING_SUPPORTED */
 
 /* Use accelerated SIMD routines. */
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(__arm__)
 #define WITH_SIMD 1
 #endif
 

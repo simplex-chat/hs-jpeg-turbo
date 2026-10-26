@@ -20,7 +20,7 @@
 #define MEM_SRCDST_SUPPORTED  1
 
 /* Use accelerated SIMD routines when using 8-bit samples */
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(__arm__)
 #define WITH_SIMD 1
 #endif
 

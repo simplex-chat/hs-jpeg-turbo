@@ -20,6 +20,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#if defined(__aarch64__)
 #if defined(__clang__) || __GNUC__ >= 9 || (__GNUC__ == 8 && __GNUC_MINOR__ >= 5)
 #define HAVE_VLD1_S16_X3
 #endif
@@ -27,6 +28,11 @@
 #define HAVE_VLD1_U16_X2
 #endif
 #if defined(__clang__) || __GNUC__ >= 10 || (__GNUC__ == 9 && __GNUC_MINOR__ >= 4) || (__GNUC__ == 8 && __GNUC_MINOR__ >= 5)
+#define HAVE_VLD1Q_U8_X4
+#endif
+#elif __clang_major__ >= 7 || __GNUC__ >= 14
+#define HAVE_VLD1_S16_X3
+#define HAVE_VLD1_U16_X2
 #define HAVE_VLD1Q_U8_X4
 #endif
 
