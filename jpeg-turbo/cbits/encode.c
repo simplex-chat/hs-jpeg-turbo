@@ -1,4 +1,5 @@
 #include <setjmp.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "jpeglib.h"
@@ -44,7 +45,7 @@ static void init_destination(j_compress_ptr cinfo)
 static boolean empty_output_buffer(j_compress_ptr cinfo)
 {
   struct encode_destination *dest = (struct encode_destination *)cinfo->dest;
-  unsigned char *buffer = realloc(dest->buffer, dest->size * 2);
+  unsigned char *buffer = dest->size > SIZE_MAX / 2 ? NULL : realloc(dest->buffer, dest->size * 2);
 
   if (!buffer)
     ERREXIT1(cinfo, JERR_OUT_OF_MEMORY, 10);
