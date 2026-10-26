@@ -14,7 +14,7 @@ foreign import ccall "jpeg_turbo_encode" jpegTurboEncode
   -> TJPF
   -> CInt
   -> Ptr (Ptr CUChar)
-  -> Ptr CULong
+  -> Ptr CSize
   -> CString
   -> IO CInt
 

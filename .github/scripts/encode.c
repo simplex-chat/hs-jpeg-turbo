@@ -51,13 +51,17 @@ static const int qualities[] = { 20, 50, 85, 95, 100 };
 
 int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
                       int pixelFormat, int quality, unsigned char **jpeg,
-                      unsigned long *jpegSize, char *error);
+                      size_t *jpegSize, char *error);
 
 typedef int (*encode_fn)(const unsigned char *rgb, int width, int height, int quality, unsigned char **jpeg, unsigned long *size, char *error);
 
 static int encode_mozjpeg(const unsigned char *rgb, int width, int height, int quality, unsigned char **jpeg, unsigned long *size, char *error)
 {
-  return jpeg_turbo_encode(rgb, width, height, TJPF_RGB, quality, jpeg, size, error);
+  size_t jpegSize = 0;
+  int retval = jpeg_turbo_encode(rgb, width, height, TJPF_RGB, quality, jpeg, &jpegSize, error);
+
+  *size = jpegSize;
+  return retval;
 }
 
 static int encode_baseline(const unsigned char *rgb, int width, int height, int quality, unsigned char **jpeg, unsigned long *size, char *error)

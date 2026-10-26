@@ -61,7 +61,7 @@ static void term_destination(j_compress_ptr cinfo)
 
 int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
                       int pixelFormat, int quality, unsigned char **jpeg,
-                      unsigned long *jpegSize, char *error)
+                      size_t *jpegSize, char *error)
 {
   struct jpeg_compress_struct cinfo;
   struct encode_error jerr;
@@ -101,6 +101,6 @@ int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
   jpeg_finish_compress(&cinfo);
   jpeg_destroy_compress(&cinfo);
   *jpeg = dest.buffer;
-  *jpegSize = (unsigned long)(dest.size - dest.pub.free_in_buffer);
+  *jpegSize = dest.size - dest.pub.free_in_buffer;
   return 0;
 }
