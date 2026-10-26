@@ -1,4 +1,3 @@
-/* Modified for the jpeg-turbo Haskell package: CMake substitutions replaced, see CHANGELOG.md */
 /* libjpeg-turbo build number */
 #define BUILD  "20250623"
 
