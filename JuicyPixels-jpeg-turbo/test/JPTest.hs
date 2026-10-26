@@ -9,7 +9,6 @@ import Control.Monad (forM_, unless)
 import Data.Bits (finiteBitSize)
 import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
-import Data.ByteString.Unsafe qualified as BU
 import Data.Either (isLeft, isRight)
 import Data.Int (Int16)
 import Data.Vector.Storable qualified as V
@@ -115,14 +114,11 @@ unit_sameAsJuicyPixels = do
     closeEnough a b = abs (fromIntegral a - fromIntegral b :: Int) <= 3
 
 unit_arithmetic :: IO ()
-unit_arithmetic = forM_ [[], [(TJ3.TJPARAM_PROGRESSIVE, 1)]] \progression -> do
-  huffman <- compress (lossy TJ2.TJSAMP_420 <> progression) TJ2.TJPF_RGB gradient
-  arithmetic <- compress (lossy TJ2.TJSAMP_420 <> progression <> [(TJ3.TJPARAM_ARITHMETIC, 1)]) TJ2.TJPF_RGB gradient
-  mapM arithmeticCoding [huffman, arithmetic] >>= (@?= [0, 1])
-  forM_ scales \(scale, _) -> do
-    expected <- JT.decodeJpeg options {JT.scale} huffman
-    actual <- JT.decodeJpeg options {JT.scale} arithmetic
-    assertBool "arithmetic-coded JPEG decoded differently" $ isRight actual && actual == expected
+unit_arithmetic = do
+  jpeg <- JT.encodeRGB 90 gradient
+  let arithmetic = patch (sofOffset jpeg + 1) [0xCA] jpeg
+  JT.readJpegHeader arithmetic >>= (@?= Left "unsupported arithmetic-coded JPEG")
+  decodeError <$> JT.decodeJpeg options arithmetic >>= (@?= Just "unsupported arithmetic-coded JPEG")
 
 unit_truncated :: IO ()
 unit_truncated = do
@@ -162,12 +158,17 @@ unit_limits = do
 unit_scanLimit :: IO ()
 unit_scanLimit = do
   jpeg <- alloca \jpegPtr -> do
-    jpegSize <- manyScansJpeg jpegPtr
+    jpegSize <- progressiveJpeg jpegPtr
     jpegBuf <- peek jpegPtr
     B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize) `finally` free jpegBuf
-  decodeError <$> JT.decodeJpeg options jpeg >>= (@?= Just "Progressive JPEG image has more than 500 scans")
+  let (headers, scans) = B.breakSubstring sos jpeg
+      (dcScan, acScan) = B.breakSubstring sos (B.drop 2 scans)
+      manyScans = headers <> sos <> dcScan <> B.concat (replicate 600 (B.take (B.length acScan - 2) acScan)) <> "\xFF\xD9"
+  decodeError <$> JT.decodeJpeg options manyScans >>= (@?= Just "Progressive JPEG image has more than 500 scans")
+  where
+    sos = "\xFF\xDA"
 
-foreign import ccall "many_scans_jpeg" manyScansJpeg :: Ptr (Ptr CUChar) -> IO CULong
+foreign import ccall "progressive_jpeg" progressiveJpeg :: Ptr (Ptr CUChar) -> IO CULong
 
 foreign import ccall "turbojpeg.h tj3Compress8" tj3Compress8 :: TJ2.TjHandle TJ2.C -> Ptr Word8 -> CInt -> CInt -> CInt -> TJ2.TJPF -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
 
@@ -190,13 +191,6 @@ compressWith tj3Compress params pixelFormat width height pixels =
             jpegBuf <- peek jpegBufPtr
             jpegSize <- peek jpegSizePtr
             B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize)
-
-arithmeticCoding :: B.ByteString -> IO CInt
-arithmeticCoding jpeg =
-  bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt ->
-    BU.unsafeUseAsCStringLen jpeg \(jpegBuf, jpegSize) -> do
-      TJ3.tj3DecompressHeader jt (castPtr jpegBuf) (fromIntegral jpegSize) >>= assertSuccess jt
-      TJ3.tj3Get jt TJ3.TJPARAM_ARITHMETIC
 
 assertSuccess :: TJ2.TjHandle a -> CInt -> Assertion
 assertSuccess jt rc = unless (rc == 0) $ TJ2.tjGetErrorStr2 jt >>= peekCString >>= assertFailure

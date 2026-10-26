@@ -5,16 +5,16 @@
 #define JPEG_LIB_VERSION  62
 
 /* libjpeg-turbo version */
-#define LIBJPEG_TURBO_VERSION  3.1.4.1
+#define LIBJPEG_TURBO_VERSION  5.0.0
 
 /* libjpeg-turbo version in integer form */
-#define LIBJPEG_TURBO_VERSION_NUMBER  3001004
+#define LIBJPEG_TURBO_VERSION_NUMBER  5000000
 
 /* Support arithmetic encoding when using 8-bit samples */
-#define C_ARITH_CODING_SUPPORTED 1
+/* #undef C_ARITH_CODING_SUPPORTED */
 
 /* Support arithmetic decoding when using 8-bit samples */
-#define D_ARITH_CODING_SUPPORTED 1
+/* #undef D_ARITH_CODING_SUPPORTED */
 
 /* Support in-memory source/destination managers */
 #define MEM_SRCDST_SUPPORTED  1

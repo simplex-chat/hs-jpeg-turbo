@@ -1,6 +1,6 @@
 /* Modified for the jpeg-turbo Haskell package: CMake substitutions replaced, see CHANGELOG.md */
 /* libjpeg-turbo build number */
-#define BUILD  "20260327"
+#define BUILD  "20250623"
 
 /* How to hide global symbols. */
 #ifdef _WIN32
@@ -19,10 +19,10 @@
 #define THREAD_LOCAL  __thread
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME  "libjpeg-turbo"
+#define PACKAGE_NAME  "mozjpeg"
 
 /* Version number of package */
-#define VERSION  "3.1.4.1"
+#define VERSION  "5.0.0"
 
 /* The size of `size_t', as computed by sizeof. */
 #define SIZEOF_SIZE_T  __SIZEOF_SIZE_T__
@@ -72,10 +72,10 @@
 #if BITS_IN_JSAMPLE == 8
 
 /* Support arithmetic encoding */
-#define C_ARITH_CODING_SUPPORTED 1
+/* #undef C_ARITH_CODING_SUPPORTED */
 
 /* Support arithmetic decoding */
-#define D_ARITH_CODING_SUPPORTED 1
+/* #undef D_ARITH_CODING_SUPPORTED */
 
 /* Use accelerated SIMD routines. */
 #ifdef __aarch64__

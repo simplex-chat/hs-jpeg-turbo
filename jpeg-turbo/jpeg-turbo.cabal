@@ -5,9 +5,10 @@ version:        0.1.0.0
 synopsis:       FFI bindings to libjpeg-turbo
 description:    Faster and more capable codec for JPEG images using libjpeg-turbo.
                 .
-                libjpeg-turbo 3.1.4.1 is compiled from the bundled source,
-                with the Neon SIMD extensions on aarch64 and the C code paths
-                on other architectures. CMake, NASM and pkg-config are not needed.
+                mozjpeg 08265790, based on libjpeg-turbo 3.0.5, is compiled from
+                the bundled source, with the Neon SIMD extensions on aarch64 and
+                the C code paths on other architectures. CMake, NASM and
+                pkg-config are not needed.
                 .
                 <https://libjpeg-turbo.org/Documentation>
 category:       Codec, Image
@@ -17,18 +18,18 @@ copyright:      2024 IC Rainbow, 2026 SimpleX Chat Ltd
 license:        BSD-3-Clause AND IJG AND Zlib
 license-files:
     LICENSE
-    cbits/libjpeg-turbo/LICENSE.md
-    cbits/libjpeg-turbo/README.ijg
+    cbits/mozjpeg/LICENSE.md
+    cbits/mozjpeg/README.ijg
 build-type:     Simple
 extra-source-files:
     CHANGELOG.md
     cbits/*.h
-    cbits/libjpeg-turbo/src/*.c
-    cbits/libjpeg-turbo/src/*.h
-    cbits/libjpeg-turbo/simd/jsimd.h
-    cbits/libjpeg-turbo/simd/arm/*.c
-    cbits/libjpeg-turbo/simd/arm/*.h
-    cbits/libjpeg-turbo/simd/arm/aarch64/*.c
+    cbits/mozjpeg/*.c
+    cbits/mozjpeg/*.h
+    cbits/mozjpeg/simd/jsimd.h
+    cbits/mozjpeg/simd/arm/*.c
+    cbits/mozjpeg/simd/arm/*.h
+    cbits/mozjpeg/simd/arm/aarch64/*.c
 
 source-repository head
   type: git
@@ -61,121 +62,119 @@ library
   cc-options: -DBMP_SUPPORTED -DPPM_SUPPORTED
   include-dirs:
       cbits
-      cbits/libjpeg-turbo/src
+      cbits/mozjpeg
   c-sources:
-      cbits/libjpeg-turbo/src/jaricom.c
-      cbits/libjpeg-turbo/src/jcapimin.c
-      cbits/libjpeg-turbo/src/jcarith.c
-      cbits/libjpeg-turbo/src/jchuff.c
-      cbits/libjpeg-turbo/src/jcicc.c
-      cbits/libjpeg-turbo/src/jcinit.c
-      cbits/libjpeg-turbo/src/jclhuff.c
-      cbits/libjpeg-turbo/src/jcmarker.c
-      cbits/libjpeg-turbo/src/jcmaster.c
-      cbits/libjpeg-turbo/src/jcomapi.c
-      cbits/libjpeg-turbo/src/jcparam.c
-      cbits/libjpeg-turbo/src/jcphuff.c
-      cbits/libjpeg-turbo/src/jctrans.c
-      cbits/libjpeg-turbo/src/jdapimin.c
-      cbits/libjpeg-turbo/src/jdarith.c
-      cbits/libjpeg-turbo/src/jdatadst-tj.c
-      cbits/libjpeg-turbo/src/jdatadst.c
-      cbits/libjpeg-turbo/src/jdatasrc-tj.c
-      cbits/libjpeg-turbo/src/jdatasrc.c
-      cbits/libjpeg-turbo/src/jdhuff.c
-      cbits/libjpeg-turbo/src/jdicc.c
-      cbits/libjpeg-turbo/src/jdinput.c
-      cbits/libjpeg-turbo/src/jdlhuff.c
-      cbits/libjpeg-turbo/src/jdmarker.c
-      cbits/libjpeg-turbo/src/jdmaster.c
-      cbits/libjpeg-turbo/src/jdphuff.c
-      cbits/libjpeg-turbo/src/jdtrans.c
-      cbits/libjpeg-turbo/src/jerror.c
-      cbits/libjpeg-turbo/src/jfdctflt.c
-      cbits/libjpeg-turbo/src/jmemmgr.c
-      cbits/libjpeg-turbo/src/jmemnobs.c
-      cbits/libjpeg-turbo/src/jpeg_nbits.c
-      cbits/libjpeg-turbo/src/rdbmp.c
-      cbits/libjpeg-turbo/src/transupp.c
-      cbits/libjpeg-turbo/src/turbojpeg.c
-      cbits/libjpeg-turbo/src/wrbmp.c
-      cbits/libjpeg-turbo/src/wrapper/jcapistd-12.c
-      cbits/libjpeg-turbo/src/wrapper/jcapistd-16.c
-      cbits/libjpeg-turbo/src/wrapper/jcapistd-8.c
-      cbits/libjpeg-turbo/src/wrapper/jccoefct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jccoefct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jccolor-12.c
-      cbits/libjpeg-turbo/src/wrapper/jccolor-16.c
-      cbits/libjpeg-turbo/src/wrapper/jccolor-8.c
-      cbits/libjpeg-turbo/src/wrapper/jcdctmgr-12.c
-      cbits/libjpeg-turbo/src/wrapper/jcdctmgr-8.c
-      cbits/libjpeg-turbo/src/wrapper/jcdiffct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jcdiffct-16.c
-      cbits/libjpeg-turbo/src/wrapper/jcdiffct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jclossls-12.c
-      cbits/libjpeg-turbo/src/wrapper/jclossls-16.c
-      cbits/libjpeg-turbo/src/wrapper/jclossls-8.c
-      cbits/libjpeg-turbo/src/wrapper/jcmainct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jcmainct-16.c
-      cbits/libjpeg-turbo/src/wrapper/jcmainct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jcprepct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jcprepct-16.c
-      cbits/libjpeg-turbo/src/wrapper/jcprepct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jcsample-12.c
-      cbits/libjpeg-turbo/src/wrapper/jcsample-16.c
-      cbits/libjpeg-turbo/src/wrapper/jcsample-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdapistd-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdapistd-16.c
-      cbits/libjpeg-turbo/src/wrapper/jdapistd-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdcoefct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdcoefct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdcolor-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdcolor-16.c
-      cbits/libjpeg-turbo/src/wrapper/jdcolor-8.c
-      cbits/libjpeg-turbo/src/wrapper/jddctmgr-12.c
-      cbits/libjpeg-turbo/src/wrapper/jddctmgr-8.c
-      cbits/libjpeg-turbo/src/wrapper/jddiffct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jddiffct-16.c
-      cbits/libjpeg-turbo/src/wrapper/jddiffct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdlossls-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdlossls-16.c
-      cbits/libjpeg-turbo/src/wrapper/jdlossls-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdmainct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdmainct-16.c
-      cbits/libjpeg-turbo/src/wrapper/jdmainct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdmerge-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdmerge-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdpostct-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdpostct-16.c
-      cbits/libjpeg-turbo/src/wrapper/jdpostct-8.c
-      cbits/libjpeg-turbo/src/wrapper/jdsample-12.c
-      cbits/libjpeg-turbo/src/wrapper/jdsample-16.c
-      cbits/libjpeg-turbo/src/wrapper/jdsample-8.c
-      cbits/libjpeg-turbo/src/wrapper/jfdctfst-12.c
-      cbits/libjpeg-turbo/src/wrapper/jfdctfst-8.c
-      cbits/libjpeg-turbo/src/wrapper/jfdctint-12.c
-      cbits/libjpeg-turbo/src/wrapper/jfdctint-8.c
-      cbits/libjpeg-turbo/src/wrapper/jidctflt-12.c
-      cbits/libjpeg-turbo/src/wrapper/jidctflt-8.c
-      cbits/libjpeg-turbo/src/wrapper/jidctfst-12.c
-      cbits/libjpeg-turbo/src/wrapper/jidctfst-8.c
-      cbits/libjpeg-turbo/src/wrapper/jidctint-12.c
-      cbits/libjpeg-turbo/src/wrapper/jidctint-8.c
-      cbits/libjpeg-turbo/src/wrapper/jidctred-12.c
-      cbits/libjpeg-turbo/src/wrapper/jidctred-8.c
-      cbits/libjpeg-turbo/src/wrapper/jquant1-12.c
-      cbits/libjpeg-turbo/src/wrapper/jquant1-8.c
-      cbits/libjpeg-turbo/src/wrapper/jquant2-12.c
-      cbits/libjpeg-turbo/src/wrapper/jquant2-8.c
-      cbits/libjpeg-turbo/src/wrapper/jutils-12.c
-      cbits/libjpeg-turbo/src/wrapper/jutils-16.c
-      cbits/libjpeg-turbo/src/wrapper/jutils-8.c
-      cbits/libjpeg-turbo/src/wrapper/rdppm-12.c
-      cbits/libjpeg-turbo/src/wrapper/rdppm-16.c
-      cbits/libjpeg-turbo/src/wrapper/rdppm-8.c
-      cbits/libjpeg-turbo/src/wrapper/wrppm-12.c
-      cbits/libjpeg-turbo/src/wrapper/wrppm-16.c
-      cbits/libjpeg-turbo/src/wrapper/wrppm-8.c
+      cbits/mozjpeg/jcapimin.c
+      cbits/mozjpeg/jcapistd.c
+      cbits/mozjpeg/jccoefct.c
+      cbits/mozjpeg/jccolor.c
+      cbits/mozjpeg/jcdctmgr.c
+      cbits/mozjpeg/jcdiffct.c
+      cbits/mozjpeg/jcext.c
+      cbits/mozjpeg/jchuff.c
+      cbits/mozjpeg/jcicc.c
+      cbits/mozjpeg/jcinit.c
+      cbits/mozjpeg/jclhuff.c
+      cbits/mozjpeg/jclossls.c
+      cbits/mozjpeg/jcmainct.c
+      cbits/mozjpeg/jcmarker.c
+      cbits/mozjpeg/jcmaster.c
+      cbits/mozjpeg/jcomapi.c
+      cbits/mozjpeg/jcparam.c
+      cbits/mozjpeg/jcphuff.c
+      cbits/mozjpeg/jcprepct.c
+      cbits/mozjpeg/jcsample.c
+      cbits/mozjpeg/jctrans.c
+      cbits/mozjpeg/jdapimin.c
+      cbits/mozjpeg/jdapistd.c
+      cbits/mozjpeg/jdatadst-tj.c
+      cbits/mozjpeg/jdatadst.c
+      cbits/mozjpeg/jdatasrc-tj.c
+      cbits/mozjpeg/jdatasrc.c
+      cbits/mozjpeg/jdcoefct.c
+      cbits/mozjpeg/jdcolor.c
+      cbits/mozjpeg/jddctmgr.c
+      cbits/mozjpeg/jddiffct.c
+      cbits/mozjpeg/jdhuff.c
+      cbits/mozjpeg/jdicc.c
+      cbits/mozjpeg/jdinput.c
+      cbits/mozjpeg/jdlhuff.c
+      cbits/mozjpeg/jdlossls.c
+      cbits/mozjpeg/jdmainct.c
+      cbits/mozjpeg/jdmarker.c
+      cbits/mozjpeg/jdmaster.c
+      cbits/mozjpeg/jdmerge.c
+      cbits/mozjpeg/jdphuff.c
+      cbits/mozjpeg/jdpostct.c
+      cbits/mozjpeg/jdsample.c
+      cbits/mozjpeg/jdtrans.c
+      cbits/mozjpeg/jerror.c
+      cbits/mozjpeg/jfdctflt.c
+      cbits/mozjpeg/jfdctfst.c
+      cbits/mozjpeg/jfdctint.c
+      cbits/mozjpeg/jidctflt.c
+      cbits/mozjpeg/jidctfst.c
+      cbits/mozjpeg/jidctint.c
+      cbits/mozjpeg/jidctred.c
+      cbits/mozjpeg/jmemmgr.c
+      cbits/mozjpeg/jmemnobs.c
+      cbits/mozjpeg/jpeg_nbits.c
+      cbits/mozjpeg/jquant1.c
+      cbits/mozjpeg/jquant2.c
+      cbits/mozjpeg/jutils.c
+      cbits/mozjpeg/rdbmp.c
+      cbits/mozjpeg/rdppm.c
+      cbits/mozjpeg/transupp.c
+      cbits/mozjpeg/turbojpeg.c
+      cbits/mozjpeg/wrbmp.c
+      cbits/mozjpeg/wrppm.c
+      cbits/wrapper/jcapistd-12.c
+      cbits/wrapper/jcapistd-16.c
+      cbits/wrapper/jccoefct-12.c
+      cbits/wrapper/jccolor-12.c
+      cbits/wrapper/jccolor-16.c
+      cbits/wrapper/jcdctmgr-12.c
+      cbits/wrapper/jcdiffct-12.c
+      cbits/wrapper/jcdiffct-16.c
+      cbits/wrapper/jclossls-12.c
+      cbits/wrapper/jclossls-16.c
+      cbits/wrapper/jcmainct-12.c
+      cbits/wrapper/jcmainct-16.c
+      cbits/wrapper/jcprepct-12.c
+      cbits/wrapper/jcprepct-16.c
+      cbits/wrapper/jcsample-12.c
+      cbits/wrapper/jcsample-16.c
+      cbits/wrapper/jdapistd-12.c
+      cbits/wrapper/jdapistd-16.c
+      cbits/wrapper/jdcoefct-12.c
+      cbits/wrapper/jdcolor-12.c
+      cbits/wrapper/jdcolor-16.c
+      cbits/wrapper/jddctmgr-12.c
+      cbits/wrapper/jddiffct-12.c
+      cbits/wrapper/jddiffct-16.c
+      cbits/wrapper/jdlossls-12.c
+      cbits/wrapper/jdlossls-16.c
+      cbits/wrapper/jdmainct-12.c
+      cbits/wrapper/jdmainct-16.c
+      cbits/wrapper/jdmerge-12.c
+      cbits/wrapper/jdpostct-12.c
+      cbits/wrapper/jdpostct-16.c
+      cbits/wrapper/jdsample-12.c
+      cbits/wrapper/jdsample-16.c
+      cbits/wrapper/jfdctfst-12.c
+      cbits/wrapper/jfdctint-12.c
+      cbits/wrapper/jidctflt-12.c
+      cbits/wrapper/jidctfst-12.c
+      cbits/wrapper/jidctint-12.c
+      cbits/wrapper/jidctred-12.c
+      cbits/wrapper/jquant1-12.c
+      cbits/wrapper/jquant2-12.c
+      cbits/wrapper/jutils-12.c
+      cbits/wrapper/jutils-16.c
+      cbits/wrapper/rdppm-12.c
+      cbits/wrapper/rdppm-16.c
+      cbits/wrapper/wrppm-12.c
+      cbits/wrapper/wrppm-16.c
   build-depends:
       base >=4.7 && <5
     , bytestring >=0.10 && <1
@@ -183,21 +182,21 @@ library
   if arch(aarch64)
     cc-options: -DNEON_INTRINSICS
     c-sources:
-        cbits/libjpeg-turbo/simd/arm/aarch64/jchuff-neon.c
-        cbits/libjpeg-turbo/simd/arm/aarch64/jsimd.c
-        cbits/libjpeg-turbo/simd/arm/jccolor-neon.c
-        cbits/libjpeg-turbo/simd/arm/jcgray-neon.c
-        cbits/libjpeg-turbo/simd/arm/jcphuff-neon.c
-        cbits/libjpeg-turbo/simd/arm/jcsample-neon.c
-        cbits/libjpeg-turbo/simd/arm/jdcolor-neon.c
-        cbits/libjpeg-turbo/simd/arm/jdmerge-neon.c
-        cbits/libjpeg-turbo/simd/arm/jdsample-neon.c
-        cbits/libjpeg-turbo/simd/arm/jfdctfst-neon.c
-        cbits/libjpeg-turbo/simd/arm/jfdctint-neon.c
-        cbits/libjpeg-turbo/simd/arm/jidctfst-neon.c
-        cbits/libjpeg-turbo/simd/arm/jidctint-neon.c
-        cbits/libjpeg-turbo/simd/arm/jidctred-neon.c
-        cbits/libjpeg-turbo/simd/arm/jquanti-neon.c
+        cbits/mozjpeg/simd/arm/aarch64/jchuff-neon.c
+        cbits/mozjpeg/simd/arm/aarch64/jsimd.c
+        cbits/mozjpeg/simd/arm/jccolor-neon.c
+        cbits/mozjpeg/simd/arm/jcgray-neon.c
+        cbits/mozjpeg/simd/arm/jcphuff-neon.c
+        cbits/mozjpeg/simd/arm/jcsample-neon.c
+        cbits/mozjpeg/simd/arm/jdcolor-neon.c
+        cbits/mozjpeg/simd/arm/jdmerge-neon.c
+        cbits/mozjpeg/simd/arm/jdsample-neon.c
+        cbits/mozjpeg/simd/arm/jfdctfst-neon.c
+        cbits/mozjpeg/simd/arm/jfdctint-neon.c
+        cbits/mozjpeg/simd/arm/jidctfst-neon.c
+        cbits/mozjpeg/simd/arm/jidctint-neon.c
+        cbits/mozjpeg/simd/arm/jidctred-neon.c
+        cbits/mozjpeg/simd/arm/jquanti-neon.c
 
 test-suite jpeg-turbo-test
   type: exitcode-stdio-1.0
