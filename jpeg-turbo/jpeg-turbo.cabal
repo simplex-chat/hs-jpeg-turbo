@@ -67,8 +67,10 @@ library
       cbits/mozjpeg
   c-sources:
       cbits/encode.c
+      cbits/mozjpeg/jaricom.c
       cbits/mozjpeg/jcapimin.c
       cbits/mozjpeg/jcapistd.c
+      cbits/mozjpeg/jcarith.c
       cbits/mozjpeg/jccoefct.c
       cbits/mozjpeg/jccolor.c
       cbits/mozjpeg/jcdctmgr.c
@@ -90,6 +92,7 @@ library
       cbits/mozjpeg/jctrans.c
       cbits/mozjpeg/jdapimin.c
       cbits/mozjpeg/jdapistd.c
+      cbits/mozjpeg/jdarith.c
       cbits/mozjpeg/jdatadst-tj.c
       cbits/mozjpeg/jdatadst.c
       cbits/mozjpeg/jdatasrc-tj.c

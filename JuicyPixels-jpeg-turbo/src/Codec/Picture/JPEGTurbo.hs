@@ -116,11 +116,9 @@ readHeader jt (jpegBuf, jpegSize) = do
   height <- getParam TJ3.TJPARAM_JPEGHEIGHT
   precision <- getParam TJ3.TJPARAM_PRECISION
   lossless <- getParam TJ3.TJPARAM_LOSSLESS
-  arithmetic <- getParam TJ3.TJPARAM_ARITHMETIC
   unless (width >= 1 && height >= 1) $ throwE "no image in JPEG"
   unless (precision == 8) $ throwE "unsupported data precision"
   unless (lossless == 0) $ throwE "unsupported lossless JPEG"
-  unless (arithmetic == 0) $ throwE "unsupported arithmetic-coded JPEG"
   JpegHeader (fromIntegral width) (fromIntegral height)
     <$> (TJ2.TJSAMP <$> getParam TJ3.TJPARAM_SUBSAMP)
     <*> (TJ2.TJCS <$> getParam TJ3.TJPARAM_COLORSPACE)

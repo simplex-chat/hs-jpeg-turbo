@@ -72,10 +72,10 @@
 #if BITS_IN_JSAMPLE == 8
 
 /* Support arithmetic encoding */
-/* #undef C_ARITH_CODING_SUPPORTED */
+#define C_ARITH_CODING_SUPPORTED 1
 
 /* Support arithmetic decoding */
-/* #undef D_ARITH_CODING_SUPPORTED */
+#define D_ARITH_CODING_SUPPORTED 1
 
 /* Use accelerated SIMD routines. */
 #if defined(__aarch64__) || defined(__arm__)
