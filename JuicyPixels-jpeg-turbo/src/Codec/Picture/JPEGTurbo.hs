@@ -9,6 +9,7 @@ module Codec.Picture.JPEGTurbo
   ) where
 
 import Codec.Picture (DynamicImage(..), Image(..), Pixel, PixelBaseComponent, PixelRGB8)
+import Control.Concurrent (rtsSupportsBoundThreads, runInBoundThread)
 import Control.Exception (bracket, finally)
 import Control.Monad (unless, when)
 import Control.Monad.IO.Class (liftIO)
@@ -105,8 +106,10 @@ withDecompressor :: ByteString -> (TJ2.TjHandle TJ2.D -> CStringLen -> ExceptT S
 withDecompressor jpeg action
   | toInteger (B.length jpeg) > toInteger (maxBound :: CULong) = pure $ Left "input is too large"
   | otherwise =
-      bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt ->
+      inBoundThread $ bracket TJ2.tjInitDecompress TJ2.tjDestroy \jt ->
         BU.unsafeUseAsCStringLen jpeg (runExceptT . action jt)
+  where
+    inBoundThread = if rtsSupportsBoundThreads then runInBoundThread else id
 
 readHeader :: TJ2.TjHandle TJ2.D -> CStringLen -> ExceptT String IO JpegHeader
 readHeader jt (jpegBuf, jpegSize) = do
