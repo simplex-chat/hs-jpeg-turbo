@@ -57,6 +57,7 @@ decodePng DecodeOptions{maxMemoryMB} png
       when (toInteger pixelBytes > toInteger maxMemoryMB * 1048576) $ throwE "image is too large"
       pixels <- liftIO $ MV.unsafeNew pixelBytes
       check $ MV.unsafeWith pixels \buf -> spngDecodeImage ctx (castPtr buf) size fmt #{const SPNG_DECODE_TRNS}
+      check $ spngDecodeChunks ctx
       liftIO $ V.unsafeFreeze pixels
 
 data EncodeOptions = EncodeOptions
@@ -141,6 +142,8 @@ foreign import ccall "spng.h spng_get_trns" spngGetTrns :: Ptr SpngCtx -> Ptr ()
 foreign import ccall "spng.h spng_decoded_image_size" spngDecodedImageSize :: Ptr SpngCtx -> CInt -> Ptr CSize -> IO CInt
 
 foreign import ccall "spng.h spng_decode_image" spngDecodeImage :: Ptr SpngCtx -> Ptr () -> CSize -> CInt -> CInt -> IO CInt
+
+foreign import ccall "spng.h spng_decode_chunks" spngDecodeChunks :: Ptr SpngCtx -> IO CInt
 
 foreign import ccall "spng.h spng_strerror" spngStrerror :: CInt -> IO CString
 

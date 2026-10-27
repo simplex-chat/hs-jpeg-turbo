@@ -69,13 +69,16 @@ unit_malformed = do
         , (huge, "image width exceeds user limit")
         , (flipByte 32 generated, "invalid chunk checksum")
         , (flipByte (B.length (png [ihdr 16 16 8 0, ("IDAT", idat1)]) - 1) split, "invalid chunk checksum")
+        , (flipByte (B.length generated - 13) generated, "invalid chunk checksum")
+        , (B.take (B.length generated - 12) generated, "end of stream")
         , (png [ihdr 16 16 8 0, iend], "invalid chunk position")
         ]
-      truncated = [B.take n valid | n <- [0, 7 .. imageDataEnd - 1]]
-      imageDataEnd = B.length valid - 16
+      truncated = [B.take n valid | n <- [0 .. B.length valid - 5]]
+      iendCrcTruncated = [B.take n valid | n <- [B.length valid - 4 .. B.length valid - 1]]
   mapM (decodePng options) [generated, split] >>= assertBool "valid generated PNGs" . all isRight
   forM_ errors \(input, err) -> decodePng options input >>= (@?= Left err) . fmap samples
   forM_ truncated \input -> decodePng options input >>= assertBool ("truncated to " <> show (B.length input)) . isLeft
+  forM_ iendCrcTruncated \input -> decodePng options input >>= assertBool ("IEND CRC truncated to " <> show (B.length input)) . isRight
   readPngHeader huge >>= (@?= Left "image width exceeds user limit")
 
 unit_memoryLimit :: IO ()
