@@ -50,7 +50,8 @@ static const struct {
 static const int qualities[] = { 20, 50, 85, 95, 100 };
 
 int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
-                      int pixelFormat, int quality, unsigned char **jpeg,
+                      int pixelFormat, int quality, const unsigned char *icc,
+                      unsigned int iccSize, unsigned char **jpeg,
                       size_t *jpegSize, char *error);
 
 typedef int (*encode_fn)(const unsigned char *rgb, int width, int height, int quality, unsigned char **jpeg, unsigned long *size, char *error);
@@ -58,7 +59,7 @@ typedef int (*encode_fn)(const unsigned char *rgb, int width, int height, int qu
 static int encode_mozjpeg(const unsigned char *rgb, int width, int height, int quality, unsigned char **jpeg, unsigned long *size, char *error)
 {
   size_t jpegSize = 0;
-  int retval = jpeg_turbo_encode(rgb, width, height, TJPF_RGB, quality, jpeg, &jpegSize, error);
+  int retval = jpeg_turbo_encode(rgb, width, height, TJPF_RGB, quality, NULL, 0, jpeg, &jpegSize, error);
 
   *size = jpegSize;
   return retval;

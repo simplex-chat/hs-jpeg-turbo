@@ -61,7 +61,8 @@ static void term_destination(j_compress_ptr cinfo)
 }
 
 int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
-                      int pixelFormat, int quality, unsigned char **jpeg,
+                      int pixelFormat, int quality, const unsigned char *icc,
+                      unsigned int iccSize, unsigned char **jpeg,
                       size_t *jpegSize, char *error)
 {
   struct jpeg_compress_struct cinfo;
@@ -95,6 +96,8 @@ int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
   jpeg_set_defaults(&cinfo);
   jpeg_set_quality(&cinfo, quality, TRUE);
   jpeg_start_compress(&cinfo, TRUE);
+  if (icc)
+    jpeg_write_icc_profile(&cinfo, icc, iccSize);
   while (cinfo.next_scanline < cinfo.image_height) {
     row = (JSAMPROW)&pixels[(size_t)cinfo.next_scanline * width * tjPixelSize[pixelFormat]];
     jpeg_write_scanlines(&cinfo, &row, 1);

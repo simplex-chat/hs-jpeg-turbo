@@ -38,23 +38,26 @@ instance EncodableRGB PixelRGB8 where
 -- instance EncodableRGB PixelYCbCr8 where
 --   jtPixelFormat _ = TJ2.TJPF_RGB
 
-encodeRGB :: EncodableRGB px => Int -> Image px -> IO ByteString
-encodeRGB jpegQual image@Image{imageWidth, imageHeight, imageData} = do
+encodeRGB :: EncodableRGB px => Int -> Maybe ByteString -> Image px -> IO ByteString
+encodeRGB jpegQual iccProfile image@Image{imageWidth, imageHeight, imageData} = do
   unless (validDimension imageWidth && validDimension imageHeight) $ error "encodeRGB: invalid image dimensions"
   unless (toInteger (V.length imageData) == toInteger imageWidth * toInteger imageHeight * pixelSize) $ error "encodeRGB: invalid image data length"
   unless (0 <= jpegQual && jpegQual <= 100) $ error "encodeRGB: invalid quality"
+  unless (all validProfile iccProfile) $ error "encodeRGB: invalid ICC profile length"
   V.unsafeWith imageData \bufPtr ->
-    with nullPtr \jpegBufPtr ->
-      with 0 \jpegSizePtr ->
-        allocaBytes Moz.jmsgLengthMax \errorBuf ->
-          flip finally (peek jpegBufPtr >>= free) do
-            rc <- Moz.jpegTurboEncode (castPtr bufPtr) (fromIntegral imageWidth) (fromIntegral imageHeight) pixelFormat (fromIntegral jpegQual) jpegBufPtr jpegSizePtr errorBuf
-            unless (rc == 0) $ peekCString errorBuf >>= error
-            jpegBuf <- peek jpegBufPtr
-            jpegSize <- peek jpegSizePtr
-            B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize)
+    maybe ($ (nullPtr, 0)) BU.unsafeUseAsCStringLen iccProfile \(iccBuf, iccSize) ->
+      with nullPtr \jpegBufPtr ->
+        with 0 \jpegSizePtr ->
+          allocaBytes Moz.jmsgLengthMax \errorBuf ->
+            flip finally (peek jpegBufPtr >>= free) do
+              rc <- Moz.jpegTurboEncode (castPtr bufPtr) (fromIntegral imageWidth) (fromIntegral imageHeight) pixelFormat (fromIntegral jpegQual) (castPtr iccBuf) (fromIntegral iccSize) jpegBufPtr jpegSizePtr errorBuf
+              unless (rc == 0) $ peekCString errorBuf >>= error
+              jpegBuf <- peek jpegBufPtr
+              jpegSize <- peek jpegSizePtr
+              B.packCStringLen (castPtr jpegBuf, fromIntegral jpegSize)
   where
     validDimension d = 1 <= d && d <= 65500
+    validProfile profile = 1 <= B.length profile && B.length profile <= 255 * 65519
     pixelFormat = jtPixelFormat image
     pixelSize = maybe (error "encodeRGB: unknown pixel format") toInteger $ TJ2.tjPixelSize pixelFormat
 

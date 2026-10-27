@@ -15,7 +15,7 @@ import Data.Vector.Storable qualified as V
 import Data.Word (Word64, Word8)
 import Foreign (Ptr, Storable, alloca, castPtr, free, nullPtr, peek, with)
 import Foreign.C.String (peekCString)
-import Foreign.C.Types (CInt(..), CSize(..), CUChar, CULong(..))
+import Foreign.C.Types (CInt(..), CSize(..), CUChar, CUInt(..), CULong(..))
 import Test.Tasty.HUnit (Assertion, assertBool, assertFailure, (@?=))
 import TurboJPEG2 qualified as TJ2
 import TurboJPEG3 qualified as TJ3
@@ -25,48 +25,62 @@ instance JT.EncodableRGB PixelRGBA8 where
 
 unit_rgb :: IO ()
 unit_rgb = do
-  decoded <- JT.encodeRGB 1 image >>= either error pure . decodeJpeg
+  decoded <- JT.encodeRGB 1 Nothing image >>= either error pure . decodeJpeg
   (dynamicMap imageWidth decoded, dynamicMap imageHeight decoded) @?= (imageWidth image, imageHeight image)
 
 unit_rgbaLength :: IO ()
 unit_rgbaLength = do
-  encoded <- JT.encodeRGB 100 rgba
+  encoded <- JT.encodeRGB 100 Nothing rgba
   assertBool "RGBA image encoded" (not (B.null encoded))
-  assertRejected "encodeRGB: invalid image data length" $ JT.encodeRGB 100 (rgba {imageWidth = imageWidth rgba + 1} :: Image PixelRGBA8)
+  assertRejected "encodeRGB: invalid image data length" $ JT.encodeRGB 100 Nothing (rgba {imageWidth = imageWidth rgba + 1} :: Image PixelRGBA8)
   where
     rgba = generateImage (\x y -> PixelRGBA8 (fromIntegral x) (fromIntegral y) (fromIntegral (x + y)) 255) 37 23
 
 unit_shortBuffer :: IO ()
-unit_shortBuffer = assertRejected "encodeRGB: invalid image data length" $ JT.encodeRGB 1 (image {imageHeight = imageHeight image + 1} :: Image PixelRGB8)
+unit_shortBuffer = assertRejected "encodeRGB: invalid image data length" $ JT.encodeRGB 1 Nothing (image {imageHeight = imageHeight image + 1} :: Image PixelRGB8)
 
 unit_badQuality :: IO ()
-unit_badQuality = forM_ ([-1, 101] ++ [2 ^ (32 :: Int) + 50 | finiteBitSize (0 :: Int) > 32]) \q -> assertRejected "encodeRGB: invalid quality" $ JT.encodeRGB q image
+unit_badQuality = forM_ ([-1, 101] ++ [2 ^ (32 :: Int) + 50 | finiteBitSize (0 :: Int) > 32]) \q -> assertRejected "encodeRGB: invalid quality" $ JT.encodeRGB q Nothing image
 
 unit_maxDimension :: IO ()
 unit_maxDimension = forM_ [(65500, 1), (1, 65500)] \(w, h) -> do
-  decoded <- JT.encodeRGB 1 (blank w h) >>= either error pure . decodeJpeg
+  decoded <- JT.encodeRGB 1 Nothing (blank w h) >>= either error pure . decodeJpeg
   (dynamicMap imageWidth decoded, dynamicMap imageHeight decoded) @?= (w, h)
 
 unit_wideImage :: IO ()
-unit_wideImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encodeRGB 100 (blank 65501 1)
+unit_wideImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encodeRGB 100 Nothing (blank 65501 1)
 
 unit_tallImage :: IO ()
-unit_tallImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encodeRGB 100 (blank 1 65501)
+unit_tallImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encodeRGB 100 Nothing (blank 1 65501)
 
 unit_sameAsMozjpeg415 :: IO ()
 unit_sameAsMozjpeg415 = do
-  jpegs <- sequence [JT.encodeRGB 50 gradient, JT.encodeRGB 20 texture, JT.encodeRGB 85 texture]
+  jpegs <- sequence [JT.encodeRGB 50 Nothing gradient, JT.encodeRGB 20 Nothing texture, JT.encodeRGB 85 Nothing texture]
   map (\jpeg -> (B.length jpeg, fnv1a jpeg)) jpegs @?= [(421, 671102332627477552), (7518, 926183756610730380), (38918, 3582522977617396525)]
   where
     texture = generateImage (\x y -> PixelRGB8 (fromIntegral (x * y)) (fromIntegral (x * 3 + y * 7)) (fromIntegral ((x * x + y * y) `div` 16))) 320 240
     fnv1a = B.foldl' (\h b -> (h `xor` fromIntegral b) * 1099511628211) (14695981039346656037 :: Word64)
+
+unit_iccProfile :: IO ()
+unit_iccProfile = do
+  plain <- JT.encodeRGB 90 Nothing image
+  readIccProfile plain >>= (@?= "")
+  forM_ [1, 65519, 65520, 255 * 65519] \size -> do
+    let profile = fst $ B.unfoldrN size (\b -> Just (b, b + 1)) (0 :: Word8)
+    jpeg <- JT.encodeRGB 90 (Just profile) image
+    readIccProfile jpeg >>= (@?= profile)
+    let app2 = markerOffset "\xFF\xE2" jpeg
+        markers = (size + 65518) `div` 65519
+    B.take app2 jpeg <> B.drop (app2 + size + 18 * markers) jpeg @?= plain
+  forM_ [0, 255 * 65519 + 1] \size ->
+    assertRejected "encodeRGB: invalid ICC profile length" $ JT.encodeRGB 90 (Just (B.replicate size 0)) image
 
 -- TODO: unit_rgba etc
 -- TODO: unit_yuv
 
 unit_header :: IO ()
 unit_header = do
-  ycbcr <- JT.encodeRGB 100 image
+  ycbcr <- JT.encodeRGB 100 Nothing image
   rgb <- compress (lossy TJ2.TJSAMP_444 <> [colorspace TJ2.TJCS_RGB]) TJ2.TJPF_RGB image
   gray <- compress (lossy TJ2.TJSAMP_GRAY) TJ2.TJPF_GRAY grayGradient
   ycck <- compress (lossy TJ2.TJSAMP_420) TJ2.TJPF_CMYK cmykGradient
@@ -96,7 +110,7 @@ unit_unsupported = do
 
 unit_scales :: IO ()
 unit_scales = forM_ [(37, 23), (1001, 999), (65500, 1)] \(w, h) -> do
-  jpeg <- JT.encodeRGB 100 (generateImage (\_ _ -> PixelRGB8 200 100 50) w h)
+  jpeg <- JT.encodeRGB 100 Nothing (generateImage (\_ _ -> PixelRGB8 200 100 50) w h)
   forM_ scales \(scale, d) ->
     JT.decodeJpeg options {JT.scale} jpeg >>= \case
       Right (ImageRGB8 Image {imageWidth, imageHeight, imageData}) -> do
@@ -123,7 +137,7 @@ unit_sameAsJuicyPixels = do
 
 unit_truncated :: IO ()
 unit_truncated = do
-  jpeg <- JT.encodeRGB 90 gradient
+  jpeg <- JT.encodeRGB 90 Nothing gradient
   let sos = markerOffset "\xFF\xDA" jpeg
       headerEnd = sos + 2 + fromIntegral (B.index jpeg (sos + 2)) * 256 + fromIntegral (B.index jpeg (sos + 3))
   forM_ [2, headerEnd, B.length jpeg `div` 2, B.length jpeg - 1] \size ->
@@ -131,7 +145,7 @@ unit_truncated = do
 
 unit_malformed :: IO ()
 unit_malformed = do
-  jpeg <- JT.encodeRGB 100 image
+  jpeg <- JT.encodeRGB 100 Nothing image
   let png = BL.toStrict (encodePng image)
       withWidth :: Int -> B.ByteString
       withWidth w = patch (sofOffset jpeg + 7) [fromIntegral (w `div` 256), fromIntegral w] jpeg
@@ -143,11 +157,11 @@ unit_malformed = do
 
 unit_limits :: IO ()
 unit_limits = do
-  progressive <- JT.encodeRGB 90 large
+  progressive <- JT.encodeRGB 90 Nothing large
   baseline <- compress (lossy TJ2.TJSAMP_420) TJ2.TJPF_RGB large
   JT.decodeJpeg options {JT.maxMemoryMB = 1} progressive >>= assertBool "progressive JPEG decoded within 1 MB" . isLeft
   JT.decodeJpeg options {JT.maxMemoryMB = 1} baseline >>= assertBool "baseline JPEG not decoded within 1 MB" . isRight
-  jpeg <- JT.encodeRGB 90 image
+  jpeg <- JT.encodeRGB 90 Nothing image
   decodeError <$> JT.decodeJpeg options {JT.maxPixels = 37 * 23 - 1} jpeg >>= (@?= Just "image is too large")
   decodeError <$> JT.decodeJpeg options {JT.maxPixels = 37 * 23} jpeg >>= (@?= Nothing)
   forM_ [options {JT.maxPixels = 0}, options {JT.maxMemoryMB = 0}, options {JT.maxMemoryMB = 2048}] \invalid ->
@@ -170,6 +184,8 @@ unit_scanLimit = do
     sos = "\xFF\xDA"
 
 foreign import ccall "progressive_jpeg" progressiveJpeg :: Ptr (Ptr CUChar) -> IO CULong
+
+foreign import ccall "icc_profile" iccProfile :: Ptr CUChar -> CULong -> Ptr (Ptr CUChar) -> IO CUInt
 
 foreign import ccall "turbojpeg.h tj3Compress8" tj3Compress8 :: TJ2.TjHandle TJ2.C -> Ptr Word8 -> CInt -> CInt -> CInt -> TJ2.TJPF -> Ptr (Ptr CUChar) -> Ptr CSize -> IO CInt
 
@@ -195,6 +211,12 @@ compressWith tj3Compress params pixelFormat width height pixels =
 
 assertSuccess :: TJ2.TjHandle a -> CInt -> Assertion
 assertSuccess jt rc = unless (rc == 0) $ TJ2.tjGetErrorStr2 jt >>= peekCString >>= assertFailure
+
+readIccProfile :: B.ByteString -> IO B.ByteString
+readIccProfile jpeg = B.useAsCStringLen jpeg \(jpegBuf, jpegSize) -> alloca \iccPtr -> do
+  iccSize <- iccProfile (castPtr jpegBuf) (fromIntegral jpegSize) iccPtr
+  icc <- peek iccPtr
+  B.packCStringLen (castPtr icc, fromIntegral iccSize) `finally` free icc
 
 lossy :: TJ2.TJSAMP -> [(TJ3.TJPARAM, CInt)]
 lossy (TJ2.TJSAMP subsamp) = [(TJ3.TJPARAM_QUALITY, 90), (TJ3.TJPARAM_SUBSAMP, subsamp)]

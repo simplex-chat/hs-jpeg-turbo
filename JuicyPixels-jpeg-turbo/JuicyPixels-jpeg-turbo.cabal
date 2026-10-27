@@ -75,6 +75,7 @@ test-suite JuicyPixels-jpeg-turbo-test
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   c-sources:
+      test/icc.c
       test/progressive.c
   build-tool-depends:
       tasty-discover:tasty-discover
