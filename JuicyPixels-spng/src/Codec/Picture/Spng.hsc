@@ -9,16 +9,17 @@ module Codec.Picture.Spng
 
 import Codec.Picture (DynamicImage(..), Image(..), PixelRGBA8)
 import Control.Exception (bracket)
-import Control.Monad (unless, when)
+import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT, throwE)
 import Data.Bits (toIntegralSized)
 import Data.ByteString (ByteString)
+import Data.ByteString qualified as B
 import Data.ByteString.Unsafe qualified as BU
 import Data.Vector.Storable qualified as V
 import Data.Vector.Storable.Mutable qualified as MV
 import Data.Word (Word32, Word8)
-import Foreign (Ptr, alloca, allocaBytes, castPtr, fillBytes, nullPtr, peek, peekByteOff, pokeByteOff, sizeOf)
+import Foreign (Ptr, alloca, allocaBytes, castPtr, fillBytes, nullPtr, peek, peekByteOff, plusPtr, pokeArray, pokeByteOff, sizeOf)
 import Foreign.C.String (CString, peekCString)
 import Foreign.C.Types (CInt(..), CSize(..))
 
@@ -40,15 +41,16 @@ newtype DecodeOptions = DecodeOptions
 readPngHeader :: ByteString -> IO (Either String PngHeader)
 readPngHeader png = withDecoder png readHeader
 
-decodePng :: DecodeOptions -> ByteString -> IO (Either String DynamicImage)
+decodePng :: DecodeOptions -> ByteString -> IO (Either String (DynamicImage, Maybe ByteString))
 decodePng DecodeOptions{maxMemoryMB} png
   | maxMemoryMB < 1 = pure $ Left "invalid decode options"
   | otherwise = withDecoder png \ctx -> do
       PngHeader{pngWidth, pngHeight, pngColorType} <- readHeader ctx
       transparency <- hasTransparency ctx
-      if transparency || pngColorType `elem` alphaColorTypes
+      image <- if transparency || pngColorType `elem` alphaColorTypes
         then ImageRGBA8 . Image pngWidth pngHeight <$> decodePixels ctx #{const SPNG_FMT_RGBA8}
         else ImageRGB8 . Image pngWidth pngHeight <$> decodePixels ctx #{const SPNG_FMT_RGB8}
+      (image,) <$> readIccProfile ctx
   where
     alphaColorTypes = [#{const SPNG_COLOR_TYPE_GRAYSCALE_ALPHA}, #{const SPNG_COLOR_TYPE_TRUECOLOR_ALPHA}]
     decodePixels ctx fmt = do
@@ -63,13 +65,14 @@ decodePng DecodeOptions{maxMemoryMB} png
 data EncodeOptions = EncodeOptions
   { compressionLevel :: Int
   , filtering :: Bool
+  , iccProfile :: Maybe ByteString
   }
   deriving (Eq, Show)
 
 encodePng :: EncodeOptions -> Image PixelRGBA8 -> IO (Either String ByteString)
-encodePng EncodeOptions{compressionLevel, filtering} Image{imageWidth, imageHeight, imageData}
+encodePng EncodeOptions{compressionLevel, filtering, iccProfile} Image{imageWidth, imageHeight, imageData}
   | compressionLevel < 0 || compressionLevel > 9 = pure $ Left "invalid encode options"
-  | otherwise = bracket (spngCtxNew #{const SPNG_CTX_ENCODER}) spngCtxFree \ctx -> runExceptT do
+  | otherwise = withProfile \profile -> bracket (spngCtxNew #{const SPNG_CTX_ENCODER}) spngCtxFree \ctx -> runExceptT do
       check $ spngSetOption ctx #{const SPNG_ENCODE_TO_BUFFER} 1
       check $ spngSetOption ctx #{const SPNG_IMG_COMPRESSION_LEVEL} (fromIntegral compressionLevel)
       unless filtering $ check $ spngSetOption ctx #{const SPNG_FILTER_CHOICE} #{const SPNG_DISABLE_FILTERING}
@@ -80,6 +83,12 @@ encodePng EncodeOptions{compressionLevel, filtering} Image{imageWidth, imageHeig
         #{poke struct spng_ihdr, bit_depth} ihdr (8 :: Word8)
         #{poke struct spng_ihdr, color_type} ihdr (#{const SPNG_COLOR_TYPE_TRUECOLOR_ALPHA} :: Word8)
         spngSetIhdr ctx ihdr
+      forM_ profile \(buf, len) -> check $ allocaBytes #{size struct spng_iccp} \iccp -> do
+        fillBytes iccp 0 #{size struct spng_iccp}
+        pokeArray (#{ptr struct spng_iccp, profile_name} iccp) (B.unpack "ICC Profile")
+        #{poke struct spng_iccp, profile_len} iccp (fromIntegral @Int @CSize len)
+        #{poke struct spng_iccp, profile} iccp buf
+        spngSetIccp ctx iccp
       check $ V.unsafeWith imageData \pixels ->
         spngEncodeImage ctx (castPtr pixels) (fromIntegral $ V.length imageData) #{const SPNG_FMT_PNG} #{const SPNG_ENCODE_FINALIZE}
       ExceptT $ alloca \lenPtr -> alloca \errPtr -> do
@@ -87,6 +96,8 @@ encodePng EncodeOptions{compressionLevel, filtering} Image{imageWidth, imageHeig
         if png == nullPtr
           then Left <$> (peek errPtr >>= spngStrerror >>= peekCString)
           else Right <$> (peek lenPtr >>= \len -> BU.unsafePackMallocCStringLen (castPtr png, fromIntegral len))
+  where
+    withProfile action = maybe (action Nothing) (\p -> BU.unsafeUseAsCStringLen p (action . Just)) iccProfile
 
 data SpngCtx
 
@@ -114,6 +125,16 @@ hasTransparency ctx = do
   rc <- liftIO $ allocaBytes #{size struct spng_trns} (spngGetTrns ctx)
   if rc == #{const SPNG_ECHUNKAVAIL} then pure False else True <$ checkCode rc
 
+readIccProfile :: Ptr SpngCtx -> ExceptT String IO (Maybe ByteString)
+readIccProfile ctx = ExceptT $ allocaBytes #{size struct spng_iccp} \iccp -> runExceptT do
+  rc <- liftIO $ spngGetIccp ctx iccp
+  if rc == #{const SPNG_ECHUNKAVAIL} then pure Nothing else checkCode rc >> Just <$> liftIO (peekProfile iccp)
+  where
+    peekProfile iccp = do
+      profile <- #{peek struct spng_iccp, profile} iccp
+      len <- #{peek struct spng_iccp, profile_len} iccp
+      B.packCStringLen (profile, fromIntegral @CSize len)
+
 query :: Int -> (Ptr a -> IO CInt) -> (Ptr a -> IO b) -> ExceptT String IO b
 query size call result = ExceptT $ allocaBytes size \p -> runExceptT do
   check $ call p
@@ -139,6 +160,8 @@ foreign import ccall "spng.h spng_get_ihdr" spngGetIhdr :: Ptr SpngCtx -> Ptr ()
 
 foreign import ccall "spng.h spng_get_trns" spngGetTrns :: Ptr SpngCtx -> Ptr () -> IO CInt
 
+foreign import ccall "spng.h spng_get_iccp" spngGetIccp :: Ptr SpngCtx -> Ptr () -> IO CInt
+
 foreign import ccall "spng.h spng_decoded_image_size" spngDecodedImageSize :: Ptr SpngCtx -> CInt -> Ptr CSize -> IO CInt
 
 foreign import ccall "spng.h spng_decode_image" spngDecodeImage :: Ptr SpngCtx -> Ptr () -> CSize -> CInt -> CInt -> IO CInt
@@ -150,6 +173,8 @@ foreign import ccall "spng.h spng_strerror" spngStrerror :: CInt -> IO CString
 foreign import ccall "spng.h spng_set_option" spngSetOption :: Ptr SpngCtx -> CInt -> CInt -> IO CInt
 
 foreign import ccall "spng.h spng_set_ihdr" spngSetIhdr :: Ptr SpngCtx -> Ptr () -> IO CInt
+
+foreign import ccall "spng.h spng_set_iccp" spngSetIccp :: Ptr SpngCtx -> Ptr () -> IO CInt
 
 foreign import ccall "spng.h spng_encode_image" spngEncodeImage :: Ptr SpngCtx -> Ptr () -> CSize -> CInt -> CInt -> IO CInt
 

@@ -5,6 +5,7 @@ import Codec.Picture (DynamicImage(..), Image(..), PixelRGBA8(..), convertRGB8, 
 import Codec.Picture qualified as JP
 import Codec.Picture.Spng
 import Control.Monad (forM_)
+import Data.Bifunctor (first)
 import Data.Bits (complement, shiftR, testBit, xor)
 import Data.ByteString qualified as B
 import Data.ByteString.Builder qualified as BB
@@ -27,35 +28,47 @@ unit_sameAsJuicyPixels = forM_ suite \(name, transparent) -> do
       expected
         | transparent = ImageRGBA8 (convertRGBA8 reference)
         | otherwise = ImageRGB8 (convertRGB8 reference)
-  assertBool name $ fmap samples decoded == Right (samples expected)
+  assertBool name $ fmap (first samples) decoded == Right (samples expected, Nothing)
 
 unit_sameOnEveryPlatform :: IO ()
 unit_sameOnEveryPlatform = do
   images <- mapM (\(name, _) -> B.readFile (suiteImage name) >>= decodePng options >>= either assertFailure pure) suite
-  foldl (V.foldl' fnv1a) fnvOffset (map (snd . samples) images) @?= 512529522448376465
+  foldl (V.foldl' fnv1a) fnvOffset (map (snd . samples . fst) images) @?= 512529522448376465
 
 unit_encodeRoundTrip :: IO ()
 unit_encodeRoundTrip = forM_ encodings \(size, filtering) -> do
   let image = gradient size
-  decoded <- encodePng (EncodeOptions 9 filtering) image >>= either assertFailure (decodePng options)
-  fmap samples decoded @?= Right ("RGBA8", imageData image)
+  decoded <- encodePng (EncodeOptions 9 filtering Nothing) image >>= either assertFailure (decodePng options)
+  fmap (first samples) decoded @?= Right (("RGBA8", imageData image), Nothing)
 
 unit_encodeSameOnEveryPlatform :: IO ()
 unit_encodeSameOnEveryPlatform = do
-  pngs <- mapM (\(size, filtering) -> encodePng (EncodeOptions 9 filtering) (gradient size) >>= either assertFailure pure) encodings
+  pngs <- mapM (\(size, filtering) -> encodePng (EncodeOptions 9 filtering Nothing) (gradient size) >>= either assertFailure pure) encodings
   foldl (B.foldl' fnv1a) fnvOffset pngs @?= 2357105111401705807
 
 unit_encodeInvalid :: IO ()
 unit_encodeInvalid = do
-  encodePng (EncodeOptions 10 True) (gradient (2, 2)) >>= (@?= Left "invalid encode options")
-  encodePng (EncodeOptions (-1) True) (gradient (2, 2)) >>= (@?= Left "invalid encode options")
-  encodePng (EncodeOptions 9 True) (Image 0 0 V.empty) >>= assertBool "0x0 image encoded" . isLeft
-  encodePng (EncodeOptions 9 True) (Image 2 2 (V.replicate 15 0)) >>= assertBool "short image data encoded" . isLeft
+  encodePng (EncodeOptions 10 True Nothing) (gradient (2, 2)) >>= (@?= Left "invalid encode options")
+  encodePng (EncodeOptions (-1) True Nothing) (gradient (2, 2)) >>= (@?= Left "invalid encode options")
+  encodePng (EncodeOptions 9 True Nothing) (Image 0 0 V.empty) >>= assertBool "0x0 image encoded" . isLeft
+  encodePng (EncodeOptions 9 True Nothing) (Image 2 2 (V.replicate 15 0)) >>= assertBool "short image data encoded" . isLeft
+  encodePng (EncodeOptions 9 True (Just "")) (gradient (2, 2)) >>= (@?= Left "invalid chunk length")
+
+unit_iccProfile :: IO ()
+unit_iccProfile = do
+  let profile = fst $ B.unfoldrN 100000 (\b -> Just (b, b + 1)) (0 :: Word8)
+      image = gradient (7, 5)
+      pixels = idat (B.pack [0, 10, 20, 0, 30, 40])
+  decodePng options (png [ihdr 2 2 8 0, iccp profile, pixels, iend]) >>= (@?= Right (Just profile)) . fmap snd
+  encoded <- encodePng (EncodeOptions 9 True (Just profile)) image >>= either assertFailure pure
+  assertBool "profile named ICC Profile" $ "iCCPICC Profile\0\0" `B.isInfixOf` encoded
+  decodePng options encoded >>= (@?= Right (("RGBA8", imageData image), Just profile)) . fmap (first samples)
+  decodePng options (png [ihdr 2 2 8 0, iccp (B.replicate (64 * 1048576 + 1) 0), pixels, iend]) >>= (@?= Left "reached chunk/cache limits") . fmap snd
 
 unit_generated :: IO ()
 unit_generated = do
   decoded <- decodePng options $ png [ihdr 2 2 8 0, idat (B.pack [0, 10, 20, 0, 30, 40]), iend]
-  fmap samples decoded @?= Right ("RGB8", V.fromList [10, 10, 10, 20, 20, 20, 30, 30, 30, 40, 40, 40])
+  fmap (samples . fst) decoded @?= Right ("RGB8", V.fromList [10, 10, 10, 20, 20, 20, 30, 30, 30, 40, 40, 40])
 
 unit_malformed :: IO ()
 unit_malformed = do
@@ -76,7 +89,7 @@ unit_malformed = do
       truncated = [B.take n valid | n <- [0 .. B.length valid - 5]]
       iendCrcTruncated = [B.take n valid | n <- [B.length valid - 4 .. B.length valid - 1]]
   mapM (decodePng options) [generated, split] >>= assertBool "valid generated PNGs" . all isRight
-  forM_ errors \(input, err) -> decodePng options input >>= (@?= Left err) . fmap samples
+  forM_ errors \(input, err) -> decodePng options input >>= (@?= Left err) . fmap (samples . fst)
   forM_ truncated \input -> decodePng options input >>= assertBool ("truncated to " <> show (B.length input)) . isLeft
   forM_ iendCrcTruncated \input -> decodePng options input >>= assertBool ("IEND CRC truncated to " <> show (B.length input)) . isRight
   readPngHeader huge >>= (@?= Left "image width exceeds user limit")
@@ -84,8 +97,8 @@ unit_malformed = do
 unit_memoryLimit :: IO ()
 unit_memoryLimit = do
   let header = png [ihdr 16384 16384 16 6, idat (B.replicate 2 0), iend]
-  decodePng (DecodeOptions 1) header >>= (@?= Left "image is too large") . fmap samples
-  decodePng (DecodeOptions 0) header >>= (@?= Left "invalid decode options") . fmap samples
+  decodePng (DecodeOptions 1) header >>= (@?= Left "image is too large") . fmap (samples . fst)
+  decodePng (DecodeOptions 0) header >>= (@?= Left "invalid decode options") . fmap (samples . fst)
 
 suite :: [(String, Bool)]
 suite =
@@ -141,6 +154,9 @@ ihdr width height depth colorType = ("IHDR", word32 width <> word32 height <> B.
 
 idat :: B.ByteString -> (B.ByteString, B.ByteString)
 idat scanlines = ("IDAT", BL.toStrict $ Z.compress $ BL.fromStrict scanlines)
+
+iccp :: B.ByteString -> (B.ByteString, B.ByteString)
+iccp profile = ("iCCP", "Display P3\0\0" <> BL.toStrict (Z.compress $ BL.fromStrict profile))
 
 iend :: (B.ByteString, B.ByteString)
 iend = ("IEND", "")
