@@ -2,6 +2,8 @@ cabal-version: 3.0
 
 name:           JuicyPixels-spng
 version:        0.1.0.0
+synopsis:       JuicyPixels wrappers for libspng
+description:    PNG encoding and decoding of JuicyPixels images with libspng.
 category:       Codec, Image
 author:         simplex.chat
 maintainer:     chat@simplex.chat
