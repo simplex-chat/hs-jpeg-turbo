@@ -8,7 +8,7 @@ module Codec.Picture.Spng
   ) where
 
 import Codec.Picture (DynamicImage(..), Image(..), PixelRGBA8)
-import Control.Exception (bracket)
+import Control.Exception (bracket, mask_)
 import Control.Monad (forM_, unless, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Except (ExceptT(..), runExceptT, throwE)
@@ -91,7 +91,7 @@ encodePng EncodeOptions{compressionLevel, filtering, iccProfile} Image{imageWidt
         spngSetIccp ctx iccp
       check $ V.unsafeWith imageData \pixels ->
         spngEncodeImage ctx (castPtr pixels) (fromIntegral $ V.length imageData) #{const SPNG_FMT_PNG} #{const SPNG_ENCODE_FINALIZE}
-      ExceptT $ alloca \lenPtr -> alloca \errPtr -> do
+      ExceptT $ alloca \lenPtr -> alloca \errPtr -> mask_ do
         png <- spngGetPngBuffer ctx lenPtr errPtr
         if png == nullPtr
           then Left <$> (peek errPtr >>= spngStrerror >>= peekCString)
