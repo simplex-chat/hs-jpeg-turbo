@@ -3,7 +3,7 @@
 set -euo pipefail
 
 builddir=dist-newstyle/coverage
-summary=${GITHUB_STEP_SUMMARY:-/dev/stdout}
+summary=${GITHUB_STEP_SUMMARY:-/dev/null}
 
 report() {
   {
@@ -11,7 +11,7 @@ report() {
     echo '```'
     "${@:2}"
     echo '```'
-  } >> "$summary"
+  } | tee -a "$summary"
 }
 
 encode_coverage() {
