@@ -56,14 +56,22 @@ unit_encodeInvalid = do
 
 unit_iccProfile :: IO ()
 unit_iccProfile = do
-  let profile = fst $ B.unfoldrN 100000 (\b -> Just (b, b + 1)) (0 :: Word8)
+  let profile = fst $ B.unfoldrN 1048576 (\b -> Just (b, b + 1)) (0 :: Word8)
       image = gradient (7, 5)
       pixels = idat (B.pack [0, 10, 20, 0, 30, 40])
   decodePng options (png [ihdr 2 2 8 0, iccp profile, pixels, iend]) >>= (@?= Right (Just profile)) . fmap snd
   encoded <- encodePng (EncodeOptions 9 True (Just profile)) image >>= either assertFailure pure
   assertBool "profile named ICC Profile" $ "iCCPICC Profile\0\0" `B.isInfixOf` encoded
   decodePng options encoded >>= (@?= Right (("RGBA8", imageData image), Just profile)) . fmap (first samples)
-  decodePng options (png [ihdr 2 2 8 0, iccp (B.replicate (64 * 1048576 + 1) 0), pixels, iend]) >>= (@?= Left "reached chunk/cache limits") . fmap snd
+  decodePng options (png [ihdr 2 2 8 0, iccp (B.replicate (1048576 + 1) 0), pixels, iend]) >>= (@?= Left "reached chunk/cache limits") . fmap snd
+
+unit_compressedTextLimit :: IO ()
+unit_compressedTextLimit = do
+  let pngWithTexts size = png $ [ihdr 2 2 8 0] <> replicate 1000 (invalidText size) <> [idat (B.pack [0, 10, 20, 0, 30, 40]), iend]
+      invalidText size = ("zTXt", "Comment\0\0" <> flipLastByte (BL.toStrict $ Z.compress $ BL.replicate size 0))
+      flipLastByte bytes = flipByte (B.length bytes - 1) bytes
+  decodePng options (pngWithTexts 524288) >>= assertBool "PNG with 1000 invalid zTXt chunks not decoded" . isRight
+  decodePng options (pngWithTexts (524288 + 1)) >>= (@?= Left "reached chunk/cache limits") . fmap snd
 
 unit_generated :: IO ()
 unit_generated = do

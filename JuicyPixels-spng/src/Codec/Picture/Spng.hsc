@@ -107,10 +107,8 @@ withDecoder png action =
     BU.unsafeUseAsCStringLen png \(buf, len) -> runExceptT do
       check $ spngSetPngBuffer ctx (castPtr buf) (fromIntegral len)
       check $ spngSetImageLimits ctx 16384 16384
-      check $ spngSetChunkLimits ctx chunkLimit chunkLimit
+      check $ spngSetChunkLimits ctx 1048576 (64 * 1048576)
       action ctx
-  where
-    chunkLimit = 64 * 1048576
 
 readHeader :: Ptr SpngCtx -> ExceptT String IO PngHeader
 readHeader ctx = query #{size struct spng_ihdr} (spngGetIhdr ctx) \ihdr ->
