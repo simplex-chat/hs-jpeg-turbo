@@ -135,6 +135,10 @@ jobs:
           LDFLAGS: ${{ env.ghc_ldflags }}
         run: bash .github/scripts/output-check.sh
 
+      - name: Report test coverage
+        if: matrix.os == 'ubuntu-22.04' && matrix.ghc == '9.6.3'
+        run: bash .github/scripts/coverage.sh
+
   armv7:
     name: armv7 on ubuntu-24.04-arm, Neon and C
     runs-on: ubuntu-24.04-arm
