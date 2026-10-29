@@ -2,7 +2,7 @@
 
 module JPTest where
 
-import Codec.Picture (DynamicImage(..), Image(..), Pixel8, PixelBaseComponent, PixelCMYK8(..), PixelRGB8(..), PixelRGBA8(..), convertRGB8, decodeJpeg, dynamicMap, encodePng, generateImage)
+import Codec.Picture (DynamicImage(..), Image(..), Pixel8, PixelBaseComponent, PixelCMYK8(..), PixelRGB8(..), PixelRGBA8(..), PixelYA8(..), convertRGB8, decodeJpeg, dynamicMap, encodePng, generateImage)
 import Codec.Picture.JPEGTurbo qualified as JT
 import Control.Exception (ErrorCall(..), bracket, finally, try)
 import Control.Monad (forM_, unless)
@@ -22,6 +22,9 @@ import TurboJPEG3 qualified as TJ3
 
 instance JT.EncodableRGB PixelRGBA8 where
   jtPixelFormat _ = TJ2.TJPF_RGBA
+
+instance JT.EncodableRGB PixelYA8 where
+  jtPixelFormat _ = TJ2.TJPF_UNKNOWN
 
 unit_rgb :: IO ()
 unit_rgb = do
@@ -52,6 +55,9 @@ unit_wideImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encod
 
 unit_tallImage :: IO ()
 unit_tallImage = assertRejected "encodeRGB: invalid image dimensions" $ JT.encodeRGB 100 Nothing (blank 1 65501)
+
+unit_unknownPixelFormat :: IO ()
+unit_unknownPixelFormat = assertRejected "encodeRGB: unknown pixel format" $ JT.encodeRGB 100 Nothing (generateImage (\_ _ -> PixelYA8 0 255) 2 2)
 
 unit_sameAsMozjpeg415 :: IO ()
 unit_sameAsMozjpeg415 = do
