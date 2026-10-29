@@ -93,10 +93,10 @@ decodeJpeg DecodeOptions{scale, maxPixels, maxMemoryMB} jpeg
           height = scaled jpegHeight
           decompress = decompressPixels jt jpegBuf width height
       case jpegColorspace of
-        TJ2.TJCS_GRAY -> ImageY8 . Image width height <$> (decompress TJ2.TJPF_GRAY 1 >>= freeze)
-        TJ2.TJCS_CMYK -> ImageCMYK8 . Image width height <$> (decompress TJ2.TJPF_CMYK 4 >>= freeze)
-        TJ2.TJCS_YCCK -> ImageCMYK8 . Image width height <$> (decompress TJ2.TJPF_CMYK 4 >>= invert >>= freeze)
-        _ -> ImageRGB8 . Image width height <$> (decompress TJ2.TJPF_RGB 3 >>= freeze)
+        TJ2.TJCS_GRAY -> ImageY8 . Image width height <$> (decompress TJ2.TJPF_GRAY >>= freeze)
+        TJ2.TJCS_CMYK -> ImageCMYK8 . Image width height <$> (decompress TJ2.TJPF_CMYK >>= freeze)
+        TJ2.TJCS_YCCK -> ImageCMYK8 . Image width height <$> (decompress TJ2.TJPF_CMYK >>= invert >>= freeze)
+        _ -> ImageRGB8 . Image width height <$> (decompress TJ2.TJPF_RGB >>= freeze)
   where
     freeze = liftIO . V.unsafeFreeze
     invert pixels = liftIO $ pixels <$ forM_ [0 .. MV.length pixels - 1] (MV.unsafeModify pixels complement)
@@ -133,8 +133,9 @@ readHeader jt (jpegBuf, jpegSize) = do
   where
     getParam = liftIO . TJ3.tj3Get jt
 
-decompressPixels :: TJ2.TjHandle TJ2.D -> CStringLen -> Int -> Int -> TJ2.TJPF -> Int -> ExceptT String IO (MV.IOVector Word8)
-decompressPixels jt (jpegBuf, jpegSize) width height pixelFormat pixelSize = do
+decompressPixels :: TJ2.TjHandle TJ2.D -> CStringLen -> Int -> Int -> TJ2.TJPF -> ExceptT String IO (MV.IOVector Word8)
+decompressPixels jt (jpegBuf, jpegSize) width height pixelFormat = do
+  pixelSize <- maybe (throwE "unknown pixel format") pure $ TJ2.tjPixelSize pixelFormat
   size <- maybe (throwE "image is too large") pure $ toIntegralSized (toInteger width * toInteger height * toInteger pixelSize)
   pixels <- liftIO $ MV.unsafeNew size
   checkResult jt $ MV.unsafeWith pixels \dstBuf ->
