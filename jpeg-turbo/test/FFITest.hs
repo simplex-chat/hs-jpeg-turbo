@@ -7,6 +7,7 @@ import Data.ByteString.Unsafe qualified as BU
 import Foreign
 import Foreign.C.String
 import Foreign.C.Types
+import MozJPEG qualified as Moz
 import Test.Tasty.HUnit (assertBool, (@?=))
 import TurboJPEG2 qualified as TJ2
 import TurboJPEG3 qualified as TJ3
@@ -90,6 +91,15 @@ unit_arithmetic = forM_ [1, 2, 4, 8] \d -> do
   (huffman, expected) <- B.readFile "cbits/mozjpeg/testimages/testimgint.jpg" >>= decodeScaled d
   (arithmetic, huffman) @?= (1, 0)
   assertBool "arithmetic-coded JPEG decoded differently" (actual == expected)
+
+unit_encodeError :: IO ()
+unit_encodeError =
+  allocaBytes Moz.jmsgLengthMax \errorBuf ->
+    with nullPtr \jpegBufPtr ->
+      with 0 \jpegSizePtr -> do
+        Moz.jpegTurboEncode nullPtr 0 1 TJ2.TJPF_RGB 90 nullPtr 0 jpegBufPtr jpegSizePtr errorBuf >>= (@?= -1)
+        peekCString errorBuf >>= (@?= "Empty JPEG image (DNL not supported)")
+        peek jpegBufPtr >>= (@?= nullPtr)
 
 decodeScaled :: CInt -> B.ByteString -> IO (CInt, B.ByteString)
 decodeScaled d jpeg =

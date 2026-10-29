@@ -17,6 +17,12 @@ struct encode_destination {
   size_t size;
 };
 
+struct encoder {
+  struct jpeg_compress_struct cinfo;
+  struct encode_error jerr;
+  struct encode_destination dest;
+};
+
 static const J_COLOR_SPACE pf2cs[TJ_NUMPF] = {
   JCS_EXT_RGB, JCS_EXT_BGR, JCS_EXT_RGBX, JCS_EXT_BGRX, JCS_EXT_XBGR,
   JCS_EXT_XRGB, JCS_GRAYSCALE, JCS_EXT_RGBA, JCS_EXT_BGRA, JCS_EXT_ABGR,
@@ -65,46 +71,57 @@ int jpeg_turbo_encode(const unsigned char *pixels, int width, int height,
                       unsigned int iccSize, unsigned char **jpeg,
                       size_t *jpegSize, char *error)
 {
-  struct jpeg_compress_struct cinfo;
-  struct encode_error jerr;
-  struct encode_destination dest;
+  struct encoder *encoder;
+  j_compress_ptr cinfo;
+  struct encode_error *jerr;
+  struct encode_destination *dest;
   JSAMPROW row;
 
-  dest.size = 4096;
-  if (!(dest.buffer = malloc(dest.size))) {
+  if (!(encoder = malloc(sizeof(struct encoder)))) {
     snprintf(error, JMSG_LENGTH_MAX, "Memory allocation failure");
     return -1;
   }
-  dest.pub.init_destination = init_destination;
-  dest.pub.empty_output_buffer = empty_output_buffer;
-  dest.pub.term_destination = term_destination;
-  cinfo.err = jpeg_std_error(&jerr.pub);
-  jerr.pub.error_exit = error_exit;
-  jerr.pub.emit_message = emit_message;
-  if (setjmp(jerr.jump)) {
-    (*cinfo.err->format_message) ((j_common_ptr)&cinfo, error);
-    jpeg_destroy_compress(&cinfo);
-    free(dest.buffer);
+  cinfo = &encoder->cinfo;
+  jerr = &encoder->jerr;
+  dest = &encoder->dest;
+  dest->size = 4096;
+  if (!(dest->buffer = malloc(dest->size))) {
+    snprintf(error, JMSG_LENGTH_MAX, "Memory allocation failure");
+    free(encoder);
     return -1;
   }
-  jpeg_create_compress(&cinfo);
-  cinfo.dest = &dest.pub;
-  cinfo.image_width = width;
-  cinfo.image_height = height;
-  cinfo.in_color_space = pf2cs[pixelFormat];
-  cinfo.input_components = tjPixelSize[pixelFormat];
-  jpeg_set_defaults(&cinfo);
-  jpeg_set_quality(&cinfo, quality, TRUE);
-  jpeg_start_compress(&cinfo, TRUE);
-  if (icc)
-    jpeg_write_icc_profile(&cinfo, icc, iccSize);
-  while (cinfo.next_scanline < cinfo.image_height) {
-    row = (JSAMPROW)&pixels[(size_t)cinfo.next_scanline * width * tjPixelSize[pixelFormat]];
-    jpeg_write_scanlines(&cinfo, &row, 1);
+  dest->pub.init_destination = init_destination;
+  dest->pub.empty_output_buffer = empty_output_buffer;
+  dest->pub.term_destination = term_destination;
+  cinfo->err = jpeg_std_error(&jerr->pub);
+  jerr->pub.error_exit = error_exit;
+  jerr->pub.emit_message = emit_message;
+  if (setjmp(jerr->jump)) {
+    (*cinfo->err->format_message) ((j_common_ptr)cinfo, error);
+    jpeg_destroy_compress(cinfo);
+    free(dest->buffer);
+    free(encoder);
+    return -1;
   }
-  jpeg_finish_compress(&cinfo);
-  jpeg_destroy_compress(&cinfo);
-  *jpeg = dest.buffer;
-  *jpegSize = dest.size - dest.pub.free_in_buffer;
+  jpeg_create_compress(cinfo);
+  cinfo->dest = &dest->pub;
+  cinfo->image_width = width;
+  cinfo->image_height = height;
+  cinfo->in_color_space = pf2cs[pixelFormat];
+  cinfo->input_components = tjPixelSize[pixelFormat];
+  jpeg_set_defaults(cinfo);
+  jpeg_set_quality(cinfo, quality, TRUE);
+  jpeg_start_compress(cinfo, TRUE);
+  if (icc)
+    jpeg_write_icc_profile(cinfo, icc, iccSize);
+  while (cinfo->next_scanline < cinfo->image_height) {
+    row = (JSAMPROW)&pixels[(size_t)cinfo->next_scanline * width * tjPixelSize[pixelFormat]];
+    jpeg_write_scanlines(cinfo, &row, 1);
+  }
+  jpeg_finish_compress(cinfo);
+  jpeg_destroy_compress(cinfo);
+  *jpeg = dest->buffer;
+  *jpegSize = dest->size - dest->pub.free_in_buffer;
+  free(encoder);
   return 0;
 }
