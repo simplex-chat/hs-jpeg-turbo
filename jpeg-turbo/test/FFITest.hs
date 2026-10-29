@@ -67,6 +67,15 @@ unit_TurboJPEG2 =
 unit_tjBufSize :: IO ()
 unit_tjBufSize = toInteger (TJ2.tjBufSize 30000 30000 TJ2.TJSAMP_420) @?= 2700002048
 
+unit_pixelSizeAndMCUWidth :: IO ()
+unit_pixelSizeAndMCUWidth = do
+  map TJ2.tjPixelSize pixelFormats @?= map (Just . tablePixelSize) pixelFormats
+  map TJ2.tjMCUWidth subsamplings @?= map (Just . tableMCUWidth) subsamplings
+  (TJ2.tjPixelSize TJ2.TJPF_UNKNOWN, TJ2.tjMCUWidth TJ3.TJSAMP_UNKNOWN) @?= (Nothing, Nothing)
+  where
+    pixelFormats = filter (/= TJ2.TJPF_UNKNOWN) $ map fst TJ2.tjpfNames
+    subsamplings = map fst TJ2.tjsampNames
+
 unit_scalingFactors :: IO ()
 unit_scalingFactors = do
   factors <- alloca \countPtr -> do
@@ -100,6 +109,10 @@ unit_encodeError =
         Moz.jpegTurboEncode nullPtr 0 1 TJ2.TJPF_RGB 90 nullPtr 0 jpegBufPtr jpegSizePtr errorBuf >>= (@?= -1)
         peekCString errorBuf >>= (@?= "Empty JPEG image (DNL not supported)")
         peek jpegBufPtr >>= (@?= nullPtr)
+
+foreign import ccall "pixel_size" tablePixelSize :: TJ2.TJPF -> CInt
+
+foreign import ccall "mcu_width" tableMCUWidth :: TJ2.TJSAMP -> CInt
 
 decodeScaled :: CInt -> B.ByteString -> IO (CInt, B.ByteString)
 decodeScaled d jpeg =

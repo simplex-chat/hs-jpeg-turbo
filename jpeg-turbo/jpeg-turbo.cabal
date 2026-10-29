@@ -259,6 +259,8 @@ test-suite jpeg-turbo-test
       TypeApplications
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-missing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  c-sources:
+      test/tables.c
   build-tool-depends:
       tasty-discover:tasty-discover
   build-depends:
