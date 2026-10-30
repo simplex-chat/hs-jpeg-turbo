@@ -2,7 +2,11 @@ name: build
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 defaults:
   run:
@@ -18,21 +22,9 @@ jobs:
         include:
           - os: ubuntu-22.04
             ghc: 9.6.3
-          - os: ubuntu-22.04
-            ghc: 8.10.7
-          - os: ubuntu-22.04-arm
-            ghc: 9.6.3
-          - os: ubuntu-24.04-arm
-            ghc: 9.6.3
-          - os: macos-latest
-            ghc: 9.6.3
-          - os: macos-15-intel
-            ghc: 9.6.3
-          - os: windows-latest
-            ghc: 9.6.3
-    env:
+    env: &build-env
       mozjpeg_cmake: "-DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR:PATH=lib -DBUILD=20250623 -DBUILD_SHARED_LIBS=OFF -DPNG_SUPPORTED=OFF -DWITH_ARITH_DEC=1 -DCMAKE_POSITION_INDEPENDENT_CODE=ON"
-    steps:
+    steps: &build-steps
       - uses: actions/checkout@v6
         with:
           submodules: true
@@ -139,8 +131,30 @@ jobs:
         if: matrix.os == 'ubuntu-22.04' && matrix.ghc == '9.6.3'
         run: bash .github/scripts/coverage.sh
 
+  build-full:
+    name: ${{ matrix.os }}, GHC ${{ matrix.ghc }}
+    if: &full-run ${{ !(github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == true || (github.event_name == 'push' && github.repository != 'simplex-chat/hs-jpeg-turbo')) }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            ghc: 8.10.7
+          - os: ubuntu-22.04-arm
+            ghc: 9.6.3
+          - os: macos-latest
+            ghc: 9.6.3
+          - os: macos-15-intel
+            ghc: 9.6.3
+          - os: windows-latest
+            ghc: 9.6.3
+    env: *build-env
+    steps: *build-steps
+
   armv7:
     name: armv7 on ubuntu-24.04-arm, Neon and C
+    if: *full-run
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
