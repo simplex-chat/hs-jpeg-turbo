@@ -3,12 +3,9 @@ snapshot: lts-18.28
 packages:
 - jpeg-turbo
 - JuicyPixels-jpeg-turbo
+- JuicyPixels-spng
 
 # extra-deps: []
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
-
-flags:
-  jpeg-turbo:
-    pkgconfig: True

@@ -1,49 +1,48 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
---
--- see: https://github.com/sol/hpack
-
 name:           jpeg-turbo
 version:        0.1.0.0
-synopsis:       FFI bindings to libjpeg-turbo
+synopsis:       FFI bindings to mozjpeg
 description:    Faster and more capable codec for JPEG images using libjpeg-turbo.
                 .
-                Set one of the flags according to your build environment.
+                mozjpeg 08265790, based on libjpeg-turbo 3.0.5, is compiled from
+                the bundled source, with the Neon SIMD extensions on 32-bit and
+                64-bit Arm and the C code paths on other architectures. CMake,
+                NASM and pkg-config are not needed.
                 .
                 <https://libjpeg-turbo.org/Documentation>
 category:       Codec, Image
 author:         IC Rainbow
 maintainer:     aenor.realm@gmail.com
-copyright:      2024 IC Rainbow
-license:        BSD-3-Clause
-license-file:   LICENSE
+copyright:      2024 IC Rainbow, 2026 SimpleX Chat Ltd
+license:        BSD-3-Clause AND IJG AND Zlib
+license-files:
+    LICENSE
+    cbits/mozjpeg/LICENSE.md
+    cbits/mozjpeg/README.ijg
 build-type:     Simple
 extra-source-files:
     CHANGELOG.md
+    cbits/*.h
+    cbits/mozjpeg/*.c
+    cbits/mozjpeg/*.h
+    cbits/mozjpeg/simd/jsimd.h
+    cbits/mozjpeg/simd/arm/*.c
+    cbits/mozjpeg/simd/arm/*.h
+    cbits/mozjpeg/simd/arm/aarch32/*.c
+    cbits/mozjpeg/simd/arm/aarch64/*.c
+    cbits/mozjpeg/testimages/testimgari.jpg
+    cbits/mozjpeg/testimages/testimgint.jpg
 
 source-repository head
   type: git
   location: https://gitlab.com/dpwiz/hs-jpeg-turbo
 
-flag pkgconfig
-  description: Use pkgconfig to find library.
-  manual: True
-  default: False
-
-flag static
-  description: Use extra-libraries for turbojpeg.
-  manual: True
-  default: False
-
-flag static-gcc
-  description: Try linking libturbojpeg statically with ld hacks. Would not work with clang.
-  manual: True
-  default: False
-
 library
   exposed-modules:
+      MozJPEG
       TurboJPEG2
+      TurboJPEG3
   other-modules:
       Paths_jpeg_turbo
   autogen-modules:
@@ -64,18 +63,177 @@ library
       TypeApplications
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-missing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  cc-options: -DBMP_SUPPORTED -DPPM_SUPPORTED
+  include-dirs:
+      cbits
+      cbits/mozjpeg
+  c-sources:
+      cbits/encode.c
+      cbits/mozjpeg/jaricom.c
+      cbits/mozjpeg/jcapimin.c
+      cbits/mozjpeg/jcapistd.c
+      cbits/mozjpeg/jccoefct.c
+      cbits/mozjpeg/jccolor.c
+      cbits/mozjpeg/jcdctmgr.c
+      cbits/mozjpeg/jcdiffct.c
+      cbits/mozjpeg/jcext.c
+      cbits/mozjpeg/jchuff.c
+      cbits/mozjpeg/jcicc.c
+      cbits/mozjpeg/jcinit.c
+      cbits/mozjpeg/jclhuff.c
+      cbits/mozjpeg/jclossls.c
+      cbits/mozjpeg/jcmainct.c
+      cbits/mozjpeg/jcmarker.c
+      cbits/mozjpeg/jcmaster.c
+      cbits/mozjpeg/jcomapi.c
+      cbits/mozjpeg/jcparam.c
+      cbits/mozjpeg/jcphuff.c
+      cbits/mozjpeg/jcprepct.c
+      cbits/mozjpeg/jcsample.c
+      cbits/mozjpeg/jctrans.c
+      cbits/mozjpeg/jdapimin.c
+      cbits/mozjpeg/jdapistd.c
+      cbits/mozjpeg/jdarith.c
+      cbits/mozjpeg/jdatadst-tj.c
+      cbits/mozjpeg/jdatadst.c
+      cbits/mozjpeg/jdatasrc-tj.c
+      cbits/mozjpeg/jdatasrc.c
+      cbits/mozjpeg/jdcoefct.c
+      cbits/mozjpeg/jdcolor.c
+      cbits/mozjpeg/jddctmgr.c
+      cbits/mozjpeg/jddiffct.c
+      cbits/mozjpeg/jdhuff.c
+      cbits/mozjpeg/jdicc.c
+      cbits/mozjpeg/jdinput.c
+      cbits/mozjpeg/jdlhuff.c
+      cbits/mozjpeg/jdlossls.c
+      cbits/mozjpeg/jdmainct.c
+      cbits/mozjpeg/jdmarker.c
+      cbits/mozjpeg/jdmaster.c
+      cbits/mozjpeg/jdmerge.c
+      cbits/mozjpeg/jdphuff.c
+      cbits/mozjpeg/jdpostct.c
+      cbits/mozjpeg/jdsample.c
+      cbits/mozjpeg/jdtrans.c
+      cbits/mozjpeg/jerror.c
+      cbits/mozjpeg/jfdctflt.c
+      cbits/mozjpeg/jfdctfst.c
+      cbits/mozjpeg/jfdctint.c
+      cbits/mozjpeg/jidctflt.c
+      cbits/mozjpeg/jidctfst.c
+      cbits/mozjpeg/jidctint.c
+      cbits/mozjpeg/jidctred.c
+      cbits/mozjpeg/jmemmgr.c
+      cbits/mozjpeg/jmemnobs.c
+      cbits/mozjpeg/jpeg_nbits.c
+      cbits/mozjpeg/jquant1.c
+      cbits/mozjpeg/jquant2.c
+      cbits/mozjpeg/jutils.c
+      cbits/mozjpeg/rdbmp.c
+      cbits/mozjpeg/rdppm.c
+      cbits/mozjpeg/transupp.c
+      cbits/mozjpeg/turbojpeg.c
+      cbits/mozjpeg/wrbmp.c
+      cbits/mozjpeg/wrppm.c
+      cbits/wrapper/jcapistd-12.c
+      cbits/wrapper/jcapistd-16.c
+      cbits/wrapper/jccoefct-12.c
+      cbits/wrapper/jccolor-12.c
+      cbits/wrapper/jccolor-16.c
+      cbits/wrapper/jcdctmgr-12.c
+      cbits/wrapper/jcdiffct-12.c
+      cbits/wrapper/jcdiffct-16.c
+      cbits/wrapper/jclossls-12.c
+      cbits/wrapper/jclossls-16.c
+      cbits/wrapper/jcmainct-12.c
+      cbits/wrapper/jcmainct-16.c
+      cbits/wrapper/jcprepct-12.c
+      cbits/wrapper/jcprepct-16.c
+      cbits/wrapper/jcsample-12.c
+      cbits/wrapper/jcsample-16.c
+      cbits/wrapper/jdapistd-12.c
+      cbits/wrapper/jdapistd-16.c
+      cbits/wrapper/jdcoefct-12.c
+      cbits/wrapper/jdcolor-12.c
+      cbits/wrapper/jdcolor-16.c
+      cbits/wrapper/jddctmgr-12.c
+      cbits/wrapper/jddiffct-12.c
+      cbits/wrapper/jddiffct-16.c
+      cbits/wrapper/jdlossls-12.c
+      cbits/wrapper/jdlossls-16.c
+      cbits/wrapper/jdmainct-12.c
+      cbits/wrapper/jdmainct-16.c
+      cbits/wrapper/jdmerge-12.c
+      cbits/wrapper/jdpostct-12.c
+      cbits/wrapper/jdpostct-16.c
+      cbits/wrapper/jdsample-12.c
+      cbits/wrapper/jdsample-16.c
+      cbits/wrapper/jfdctfst-12.c
+      cbits/wrapper/jfdctint-12.c
+      cbits/wrapper/jidctflt-12.c
+      cbits/wrapper/jidctfst-12.c
+      cbits/wrapper/jidctint-12.c
+      cbits/wrapper/jidctred-12.c
+      cbits/wrapper/jquant1-12.c
+      cbits/wrapper/jquant2-12.c
+      cbits/wrapper/jutils-12.c
+      cbits/wrapper/jutils-16.c
+      cbits/wrapper/rdppm-12.c
+      cbits/wrapper/rdppm-16.c
+      cbits/wrapper/wrppm-12.c
+      cbits/wrapper/wrppm-16.c
   build-depends:
       base >=4.7 && <5
     , bytestring >=0.10 && <1
   default-language: Haskell2010
-  if flag(pkgconfig)
-    pkgconfig-depends:
-        libturbojpeg
-  if flag(static)
-    extra-libraries:
-        turbojpeg
-  if flag(static-gcc)
-    ld-options: -Wl,--allow-multiple-definition -Wl,--whole-archive -Wl,-Bstatic -Wl,-lturbojpeg -Wl,-Bdynamic -Wl,--no-whole-archive
+  if arch(aarch64)
+    cc-options: -DNEON_INTRINSICS
+    c-sources:
+        cbits/mozjpeg/simd/arm/aarch64/jchuff-neon.c
+        cbits/mozjpeg/simd/arm/aarch64/jsimd.c
+        cbits/mozjpeg/simd/arm/jccolor-neon.c
+        cbits/mozjpeg/simd/arm/jcgray-neon.c
+        cbits/mozjpeg/simd/arm/jcphuff-neon.c
+        cbits/mozjpeg/simd/arm/jcsample-neon.c
+        cbits/mozjpeg/simd/arm/jdcolor-neon.c
+        cbits/mozjpeg/simd/arm/jdmerge-neon.c
+        cbits/mozjpeg/simd/arm/jdsample-neon.c
+        cbits/mozjpeg/simd/arm/jfdctfst-neon.c
+        cbits/mozjpeg/simd/arm/jfdctint-neon.c
+        cbits/mozjpeg/simd/arm/jidctfst-neon.c
+        cbits/mozjpeg/simd/arm/jidctint-neon.c
+        cbits/mozjpeg/simd/arm/jidctred-neon.c
+        cbits/mozjpeg/simd/arm/jquanti-neon.c
+  if arch(arm)
+    cc-options: -DNEON_INTRINSICS
+    c-sources:
+        cbits/mozjpeg/simd/arm/aarch32/jsimd.c
+    build-depends:
+        neon
+
+library neon
+  cc-options: -DNEON_INTRINSICS -mfpu=neon
+  include-dirs:
+      cbits
+      cbits/mozjpeg
+  c-sources:
+      cbits/mozjpeg/simd/arm/aarch32/jchuff-neon.c
+      cbits/mozjpeg/simd/arm/jccolor-neon.c
+      cbits/mozjpeg/simd/arm/jcgray-neon.c
+      cbits/mozjpeg/simd/arm/jcphuff-neon.c
+      cbits/mozjpeg/simd/arm/jcsample-neon.c
+      cbits/mozjpeg/simd/arm/jdcolor-neon.c
+      cbits/mozjpeg/simd/arm/jdmerge-neon.c
+      cbits/mozjpeg/simd/arm/jdsample-neon.c
+      cbits/mozjpeg/simd/arm/jfdctfst-neon.c
+      cbits/mozjpeg/simd/arm/jfdctint-neon.c
+      cbits/mozjpeg/simd/arm/jidctfst-neon.c
+      cbits/mozjpeg/simd/arm/jidctint-neon.c
+      cbits/mozjpeg/simd/arm/jidctred-neon.c
+      cbits/mozjpeg/simd/arm/jquanti-neon.c
+  default-language: Haskell2010
+  if !arch(arm)
+    buildable: False
 
 test-suite jpeg-turbo-test
   type: exitcode-stdio-1.0
@@ -101,6 +259,8 @@ test-suite jpeg-turbo-test
       TypeApplications
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wno-missing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  c-sources:
+      test/tables.c
   build-tool-depends:
       tasty-discover:tasty-discover
   build-depends:

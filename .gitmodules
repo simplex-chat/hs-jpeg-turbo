@@ -1,0 +1,9 @@
+[submodule "jpeg-turbo/cbits/mozjpeg"]
+	path = jpeg-turbo/cbits/mozjpeg
+	url = https://github.com/mozilla/mozjpeg
+[submodule "JuicyPixels-spng/cbits/libspng"]
+	path = JuicyPixels-spng/cbits/libspng
+	url = https://github.com/randy408/libspng
+[submodule "JuicyPixels-spng/cbits/miniz"]
+	path = JuicyPixels-spng/cbits/miniz
+	url = https://github.com/richgel999/miniz

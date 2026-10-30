@@ -1,0 +1,99 @@
+cabal-version: 3.0
+
+name:           JuicyPixels-spng
+version:        0.1.0.0
+synopsis:       JuicyPixels wrappers for libspng
+description:    PNG encoding and decoding of JuicyPixels images with libspng.
+category:       Codec, Image
+author:         simplex.chat
+maintainer:     chat@simplex.chat
+copyright:      2026 SimpleX Chat Ltd
+license:        BSD-3-Clause AND BSD-2-Clause AND libpng-2.0 AND MIT
+license-files:
+    LICENSE
+    cbits/libspng/LICENSE
+    cbits/miniz/LICENSE
+build-type:     Simple
+extra-source-files:
+    CHANGELOG.md
+    cbits/*.h
+    cbits/libspng/spng/spng.h
+    cbits/miniz/*.h
+    cbits/libspng/tests/images/*.png
+    cbits/libspng/tests/images/PngSuite.LICENSE
+
+source-repository head
+  type: git
+  location: https://gitlab.com/dpwiz/hs-jpeg-turbo
+
+library
+  exposed-modules:
+      Codec.Picture.Spng
+  hs-source-dirs:
+      src
+  default-extensions:
+      BangPatterns
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+      NamedFieldPuns
+      OverloadedStrings
+      PatternSynonyms
+      RecordWildCards
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  cc-options: -DSPNG_STATIC -DSPNG_USE_MINIZ -DMINIZ_NO_STDIO -DMINIZ_NO_TIME -DMINIZ_NO_ARCHIVE_APIS
+  include-dirs:
+      cbits
+      cbits/libspng/spng
+      cbits/miniz
+  c-sources:
+      cbits/libspng/spng/spng.c
+      cbits/miniz/miniz.c
+      cbits/miniz/miniz_tdef.c
+      cbits/miniz/miniz_tinfl.c
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , transformers
+    , vector
+  default-language: Haskell2010
+
+test-suite JuicyPixels-spng-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      SpngTest
+  hs-source-dirs:
+      test
+  default-extensions:
+      BangPatterns
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+      NamedFieldPuns
+      OverloadedStrings
+      PatternSynonyms
+      RecordWildCards
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-tool-depends:
+      tasty-discover:tasty-discover
+  build-depends:
+      JuicyPixels
+    , JuicyPixels-spng
+    , base >=4.7 && <5
+    , bytestring
+    , tasty
+    , tasty-discover
+    , tasty-hunit
+    , vector
+    , zlib
+  default-language: Haskell2010

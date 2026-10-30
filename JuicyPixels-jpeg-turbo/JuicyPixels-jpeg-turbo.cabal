@@ -1,17 +1,13 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.38.0.
---
--- see: https://github.com/sol/hpack
-
 name:           JuicyPixels-jpeg-turbo
 version:        0.1.0.0
-synopsis:       JuicyPixels wrappers for libjpeg-turbo
-description:    NB. You must set one of the build flags on `jpeg-turbo` dependency.
+synopsis:       JuicyPixels wrappers for mozjpeg
+description:    JPEG encoding and decoding of JuicyPixels images with mozjpeg.
 category:       Codec, Image
 author:         IC Rainbow
 maintainer:     aenor.realm@gmail.com
-copyright:      2024 IC Rainbow
+copyright:      2024 IC Rainbow, 2026 SimpleX Chat Ltd
 license:        BSD-3-Clause
 license-file:   LICENSE
 build-type:     Simple
@@ -50,6 +46,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , jpeg-turbo
+    , transformers
     , vector
   default-language: Haskell2010
 
@@ -77,6 +74,11 @@ test-suite JuicyPixels-jpeg-turbo-test
       TypeOperators
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  c-sources:
+      test/icc.c
+      test/progressive.c
+  build-tool-depends:
+      tasty-discover:tasty-discover
   build-depends:
       JuicyPixels
     , JuicyPixels-jpeg-turbo
@@ -86,4 +88,5 @@ test-suite JuicyPixels-jpeg-turbo-test
     , tasty
     , tasty-discover
     , tasty-hunit
+    , vector
   default-language: Haskell2010

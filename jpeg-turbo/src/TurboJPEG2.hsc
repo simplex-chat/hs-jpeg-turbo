@@ -16,9 +16,9 @@ newtype TjHandle a = Handle (Ptr (TjHandle a))
 
 foreign import ccall "turbojpeg.h tjDestroy" tjDestroy :: (TjHandle a) -> IO ()
 
-foreign import ccall "turbojpeg.h tjGetErrorCode" tjGetErrorCode :: (TjHandle a) -> Int
+foreign import ccall "turbojpeg.h tjGetErrorCode" tjGetErrorCode :: (TjHandle a) -> IO CInt
 
-foreign import ccall "turbojpeg.h tjGetErrorStr2" tjGetErrorStr2 :: (TjHandle a) -> CString
+foreign import ccall "turbojpeg.h tjGetErrorStr2" tjGetErrorStr2 :: (TjHandle a) -> IO CString
 
 -- * Buffers
 
@@ -31,7 +31,7 @@ foreign import ccall "turbojpeg.h tjBufSize" tjBufSize
   :: CInt -- ^ width
   -> CInt -- ^ height
   -> TJSAMP -- ^ jpegSubsamp
-  -> CInt
+  -> CULong
 
 -- * Compression
 
@@ -82,6 +82,21 @@ foreign import ccall "turbojpeg.h tjDecompress2" tjDecompress2
   -> TJPF -- ^ pixelFormat
   -> TJFLAG -- ^ flags
   -> IO CInt
+
+data TjScalingFactor = TjScalingFactor { num, denom :: CInt }
+  deriving (Eq, Show)
+
+instance Storable TjScalingFactor where
+  sizeOf ~_ = #{size tjscalingfactor}
+  alignment ~_ = #{alignment tjscalingfactor}
+  poke p TjScalingFactor{num, denom} = do
+    #{poke tjscalingfactor, num} p num
+    #{poke tjscalingfactor, denom} p denom
+  peek p = TjScalingFactor
+    <$> (#{peek tjscalingfactor, num} p)
+    <*> (#{peek tjscalingfactor, denom} p)
+
+foreign import ccall "turbojpeg.h tjGetScalingFactors" tjGetScalingFactors :: Ptr CInt -> IO (Ptr TjScalingFactor)
 
 -- * Transform
 
@@ -398,13 +413,9 @@ pattern TJFLAG_FASTDCT = TJFLAG #{const TJFLAG_FASTDCT}
 pattern TJFLAG_FASTUPSAMPLE :: TJFLAG
 pattern TJFLAG_FASTUPSAMPLE = TJFLAG #{const TJFLAG_FASTUPSAMPLE}
 
--- since 2.1, ubuntu 20.04 ships 2.0
--- -- | Limit the number of progressive JPEG scans that the decompression and transform functions will process.
--- --
--- -- If a progressive JPEG image contains an unreasonably large number of scans, then this flag will cause the decompression and transform functions to return an error.
--- -- The primary purpose of this is to allow security-critical applications to guard against an exploit of the progressive JPEG format described in this report.
--- pattern TJFLAG_LIMITSCANS :: TJFLAG
--- pattern TJFLAG_LIMITSCANS = TJFLAG #{const TJFLAG_LIMITSCANS}
+-- | Limits progressive JPEGs to 500 scans.
+pattern TJFLAG_LIMITSCANS :: TJFLAG
+pattern TJFLAG_LIMITSCANS = TJFLAG #{const TJFLAG_LIMITSCANS}
 
 -- | Disable JPEG buffer (re)allocation.
 --
@@ -430,7 +441,7 @@ tjflagNames =
   , (TJFLAG_BOTTOMUP, "TJFLAG_BOTTOMUP")
   , (TJFLAG_FASTDCT, "TJFLAG_FASTDCT")
   , (TJFLAG_FASTUPSAMPLE, "TJFLAG_FASTUPSAMPLE")
-  -- , (TJFLAG_LIMITSCANS, "TJFLAG_LIMITSCANS")
+  , (TJFLAG_LIMITSCANS, "TJFLAG_LIMITSCANS")
   , (TJFLAG_NOREALLOC, "TJFLAG_NOREALLOC")
   , (TJFLAG_PROGRESSIVE, "TJFLAG_PROGRESSIVE")
   , (TJFLAG_STOPONWARNING, "TJFLAG_STOPONWARNING")
