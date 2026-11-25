@@ -1,0 +1,141 @@
+cabal-version: 3.0
+
+name:           JuicyPixels-libwebp
+version:        0.1.0.0
+synopsis:       JuicyPixels wrappers for libwebp
+description:    WebP decoding of JuicyPixels images with libwebp.
+category:       Codec, Image
+author:         simplex.chat
+maintainer:     chat@simplex.chat
+copyright:      2026 SimpleX Chat Ltd
+license:        BSD-3-Clause
+license-files:
+    LICENSE
+    cbits/libwebp/COPYING
+    cbits/libwebp/PATENTS
+build-type:     Simple
+extra-source-files:
+    CHANGELOG.md
+    cbits/hs_webp.h
+    cbits/libwebp/src/**/*.h
+    cbits/libwebp/src/utils/utils.c
+
+source-repository head
+  type: git
+  location: https://gitlab.com/dpwiz/hs-jpeg-turbo
+
+library
+  exposed-modules:
+      Codec.Picture.Webp
+  hs-source-dirs:
+      src
+  default-extensions:
+      BangPatterns
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+      NamedFieldPuns
+      OverloadedStrings
+      PatternSynonyms
+      RecordWildCards
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  cc-options: -DWEBP_USE_THREAD -DNDEBUG
+  include-dirs:
+      cbits
+      cbits/libwebp
+  c-sources:
+      cbits/hs_webp.c
+      cbits/libwebp/src/dec/alpha_dec.c
+      cbits/libwebp/src/dec/buffer_dec.c
+      cbits/libwebp/src/dec/frame_dec.c
+      cbits/libwebp/src/dec/idec_dec.c
+      cbits/libwebp/src/dec/io_dec.c
+      cbits/libwebp/src/dec/quant_dec.c
+      cbits/libwebp/src/dec/tree_dec.c
+      cbits/libwebp/src/dec/vp8_dec.c
+      cbits/libwebp/src/dec/vp8l_dec.c
+      cbits/libwebp/src/dec/webp_dec.c
+      cbits/libwebp/src/demux/demux.c
+      cbits/libwebp/src/dsp/alpha_processing.c
+      cbits/libwebp/src/dsp/alpha_processing_neon.c
+      cbits/libwebp/src/dsp/alpha_processing_sse2.c
+      cbits/libwebp/src/dsp/alpha_processing_sse41.c
+      cbits/libwebp/src/dsp/cpu.c
+      cbits/libwebp/src/dsp/dec.c
+      cbits/libwebp/src/dsp/dec_clip_tables.c
+      cbits/libwebp/src/dsp/dec_neon.c
+      cbits/libwebp/src/dsp/dec_sse2.c
+      cbits/libwebp/src/dsp/dec_sse41.c
+      cbits/libwebp/src/dsp/filters.c
+      cbits/libwebp/src/dsp/filters_neon.c
+      cbits/libwebp/src/dsp/filters_sse2.c
+      cbits/libwebp/src/dsp/lossless.c
+      cbits/libwebp/src/dsp/lossless_neon.c
+      cbits/libwebp/src/dsp/lossless_sse2.c
+      cbits/libwebp/src/dsp/lossless_sse41.c
+      cbits/libwebp/src/dsp/rescaler.c
+      cbits/libwebp/src/dsp/rescaler_neon.c
+      cbits/libwebp/src/dsp/rescaler_sse2.c
+      cbits/libwebp/src/dsp/upsampling.c
+      cbits/libwebp/src/dsp/upsampling_neon.c
+      cbits/libwebp/src/dsp/upsampling_sse2.c
+      cbits/libwebp/src/dsp/upsampling_sse41.c
+      cbits/libwebp/src/dsp/yuv.c
+      cbits/libwebp/src/dsp/yuv_neon.c
+      cbits/libwebp/src/dsp/yuv_sse2.c
+      cbits/libwebp/src/dsp/yuv_sse41.c
+      cbits/libwebp/src/utils/bit_reader_utils.c
+      cbits/libwebp/src/utils/color_cache_utils.c
+      cbits/libwebp/src/utils/filters_utils.c
+      cbits/libwebp/src/utils/huffman_utils.c
+      cbits/libwebp/src/utils/palette.c
+      cbits/libwebp/src/utils/quant_levels_dec_utils.c
+      cbits/libwebp/src/utils/random_utils.c
+      cbits/libwebp/src/utils/rescaler_utils.c
+      cbits/libwebp/src/utils/thread_utils.c
+  build-depends:
+      JuicyPixels
+    , base >=4.7 && <5
+    , bytestring
+    , transformers
+    , vector
+  default-language: Haskell2010
+
+test-suite JuicyPixels-libwebp-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      WebpTest
+  hs-source-dirs:
+      test
+  default-extensions:
+      BangPatterns
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+      NamedFieldPuns
+      OverloadedStrings
+      PatternSynonyms
+      RecordWildCards
+      TupleSections
+      TypeApplications
+      TypeOperators
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-tool-depends:
+      tasty-discover:tasty-discover
+  build-depends:
+      JuicyPixels
+    , JuicyPixels-libwebp
+    , base >=4.7 && <5
+    , bytestring
+    , cryptohash-md5
+    , tasty
+    , tasty-discover
+    , tasty-hunit
+    , vector
+  default-language: Haskell2010
